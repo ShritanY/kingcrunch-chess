@@ -207,6 +207,7 @@ button:focus-visible,a:focus-visible,textarea:focus-visible{outline:1.5px solid 
 .steps2 button{flex:1;min-height:40px;border:0;border-radius:999px;background:var(--pill);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
 .steps2 button svg{width:16px;height:16px}
 .steps2 button:disabled{opacity:.35}
+.tag2 .bdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--q-B);margin-right:6px;vertical-align:1px}
 .qpill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;min-height:26px;padding:0 10px 0 4px;border-radius:999px;font:400 .72rem var(--mono);color:var(--ink);background:var(--pill)}
 .qpill b{display:grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:999px;color:#fff;font:400 .7rem var(--mono)}
 .qual{display:grid;grid-template-columns:1fr auto auto;gap:0;border-radius:14px;overflow:hidden;background:var(--bg)}
@@ -752,7 +753,7 @@ document.querySelectorAll('#weekSeg button').forEach(b=>b.onclick=()=>{ S.week=b
 
 
 const GL={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
-function boardSVG(fen,played,best,flip,tint){
+function boardSVG(fen,played,best,flip,tint,acol){
   const rows=fen.split(' ')[0].split('/'); let sq='', pc='';
   const xy=s=>{ const f=s.charCodeAt(0)-97, r=+s[1]-1; return flip?[(7-f)*12.5,r*12.5]:[f*12.5,(7-r)*12.5]; };
   for(let r=0;r<8;r++) for(let f=0;f<8;f++){ const x=(flip?7-f:f)*12.5, y=(flip?7-r:r)*12.5; sq+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="var(${(r+f)%2?'--sq-d':'--sq-l'})"/>`; }
@@ -761,7 +762,7 @@ function boardSVG(fen,played,best,flip,tint){
     pc+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="11" style="font-family:var(--glyph)" fill="${w?'#FFFFFF':'#151314'}" stroke="${w?'#151314':'none'}" stroke-width="${w?.55:0}" paint-order="stroke">${GL[ch.toLowerCase()]}︎</text>`; f++; } });
   let ar='';
   if(best&&best.length>=4){ const [x1,y1]=xy(best.slice(0,2)), [x2,y2]=xy(best.slice(2,4)); const ax=x1+6.25, ay=y1+6.25, bx=x2+6.25, by=y2+6.25, L=Math.hypot(bx-ax,by-ay)||1, ux=(bx-ax)/L, uy=(by-ay)/L;
-    ar=`<line x1="${ax}" y1="${ay}" x2="${bx-ux*3.2}" y2="${by-uy*3.2}" stroke="var(--violet)" stroke-width="2.4" stroke-linecap="round" opacity=".95"/><path d="M${bx} ${by} L${bx-ux*5-uy*3.4} ${by-uy*5+ux*3.4} L${bx-ux*5+uy*3.4} ${by-uy*5-ux*3.4}Z" fill="var(--violet)"/>`; }
+    ar=`<line x1="${ax}" y1="${ay}" x2="${bx-ux*3.2}" y2="${by-uy*3.2}" stroke="${acol||'var(--violet)'}" stroke-width="2.4" stroke-linecap="round" opacity=".9"/><path d="M${bx} ${by} L${bx-ux*5-uy*3.4} ${by-uy*5+ux*3.4} L${bx-ux*5+uy*3.4} ${by-uy*5-ux*3.4}Z" fill="${acol||'var(--violet)'}" opacity=".9"/>`; }
   return `<svg class="board" viewBox="0 0 100 100" role="img" aria-label="Board position">${sq}${pc}${ar}</svg>`;
 }
 
@@ -851,8 +852,8 @@ function replayData(g){
   if(!g.mv||!g.ev) return null;
   const sans=g.mv.split(' ').filter(Boolean), c=new Chess(), fens=[c.fen()], ucis=[''];
   for(const m of sans){ const r=c.move(m); if(!r) break; fens.push(c.fen()); ucis.push(r.from+r.to); }
-  const ev=g.ev.split(',').map(Number);
-  Object.defineProperty(g,'_rp',{value:{sans,fens,ucis,ev},enumerable:false,configurable:true,writable:true});
+  const ev=g.ev.split(',').map(Number), bm=g.bm?g.bm.split(' '):null;
+  Object.defineProperty(g,'_rp',{value:{sans,fens,ucis,ev,bm:bm&&bm.length>=sans.length?bm:null},enumerable:false,configurable:true,writable:true});
   return g._rp;
 }
 function badgeSVG(sq,flip,code){
@@ -877,8 +878,9 @@ function renderReplay(g){
   if(cl){ for(let i=1;i<=n;i++){ const c=cl[i-1]; if(!QNOTE[c]) continue; const you=mineP(i); marks+=`<circle cx="${x(i).toFixed(1)}" cy="${y(rp.ev[i]).toFixed(1)}" r="${you?3.6:2.6}" fill="${Q[c].col}" fill-opacity="${you?1:.55}" stroke="var(--surface)" stroke-width="1.2"/>`; } }
   else marks=(g.moments||[]).filter(m=>typeof m.ply==='number'&&m.ply<n).map(m=>{ const i=m.ply+1; return `<circle cx="${x(i).toFixed(1)}" cy="${y(rp.ev[i]).toFixed(1)}" r="3.6" fill="${m.who==='you'?'var(--err)':'var(--foot)'}" stroke="var(--surface)" stroke-width="1.5"/>`; }).join('');
   const cnt={you:{},opp:{}}; if(cl) for(let i=1;i<=n;i++){ const k=mineP(i)?'you':'opp'; cnt[k][cl[i-1]]=(cnt[k][cl[i-1]]||0)+1; }
-  const qual=cl?`<div class="qual" role="table" aria-label="Move ratings"><div class="hd"><span>Rating</span><span class="n">You</span><span class="n">Them</span></div>${QORDER.map(c=>`<div class="q" data-c="${c}" role="row"><span><i style="background:${Q[c].col}">${Q[c].glyph}</i>${Q[c].name}</span><span class="n">${cnt.you[c]||0}</span><span class="n">${cnt.opp[c]||0}</span></div>`).join('')}</div>`
-    :`<div class="rate"><p class="mono foot">This game was reviewed before move ratings existed.</p><button class="btn sec" type="button" id="gRate">Rate every move</button><div class="prog" id="gRateP" hidden><i></i></div></div>`;
+  const bmOk=!!rp.bm, rateBox=`<div class="rate"><p class="mono foot">${cl?'Best-move arrows aren’t saved for this game yet.':'This game was reviewed before move ratings existed.'}</p><button class="btn sec" type="button" id="gRate">${cl?'Add best moves':'Rate every move'}</button><div class="prog" id="gRateP" hidden><i></i></div></div>`;
+  const qual=cl?`<div class="qual" role="table" aria-label="Move ratings"><div class="hd"><span>Rating</span><span class="n">You</span><span class="n">Them</span></div>${QORDER.map(c=>`<div class="q" data-c="${c}" role="row"><span><i style="background:${Q[c].col}">${Q[c].glyph}</i>${Q[c].name}</span><span class="n">${cnt.you[c]||0}</span><span class="n">${cnt.opp[c]||0}</span></div>`).join('')}</div>${bmOk?'':rateBox}`
+    :rateBox;
   box.innerHTML=`<div class="section" style="margin:0"><span>Advantage, move by move</span><span class="mono foot">Drag to replay</span></div>
   <svg class="graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Advantage over the game. Drag to replay.">
     <defs><clipPath id="up"><rect x="0" y="0" width="${W}" height="${mid}"/></clipPath><clipPath id="dn"><rect x="0" y="${mid}" width="${W}" height="${mid}"/></clipPath></defs>
@@ -900,8 +902,11 @@ function renderReplay(g){
   let at=keys.find(k=>mineP(k))||n;
   const show=i=>{ at=Math.max(0,Math.min(n,i));
     const m=byPly[at], uci=rp.ucis[at], c=cl&&at?cl[at-1]:'', you=at&&mineP(at);
-    const bad=c&&'imxu'.includes(c), arrow=you&&bad&&m&&m.bu?m.bu:(you&&bad?'':null);
-    let svg=boardSVG(rp.fens[at],uci||null,arrow||null,flip,bad?'var(--err-tint)':'var(--tint)');
+    const bad=c&&'imxu'.includes(c);
+    let arrow=null, bestSan='';
+    if(at&&rp.bm){ const b=rp.bm[at-1]; if(b&&b!=='-'&&b.slice(0,4)!==uci&&!'Bbgf'.includes(c||'-')){ arrow=b; bestSan=sanLine(rp.fens[at-1],[b],1)[0]||''; } }
+    else if(you&&bad&&m&&m.bu){ arrow=m.bu; bestSan=m.best||''; }
+    let svg=boardSVG(rp.fens[at],uci||null,arrow,flip,bad?'var(--err-tint)':'var(--tint)','var(--q-B)');
     if(c&&uci) svg=svg.replace('</svg>',badgeSVG(uci.slice(2,4),flip,c)+'</svg>');
     $('gBoard').innerHTML=svg;
     const no=Math.ceil(at/2), white=at%2===1;
@@ -909,8 +914,10 @@ function renderReplay(g){
     $('gSan').textContent=at?(white?no+'.':no+'…')+rp.sans[at-1]:'Start';
     $('gQ').innerHTML=c&&Q[c]?`<span class="qpill"><b style="background:${Q[c].col}">${Q[c].glyph}</b>${Q[c].name}</span>`:'';
     $('gEval').textContent=fmtEval(rp.ev[at]);
-    const tg=$('gTag'); tg.className='tag2'+(m&&m.who==='opponent'?' gift':'');
-    tg.textContent=m?(m.who==='you'?(m.missedMate?'Missed mate. Better was '+(m.best||''):'Better was '+(m.best||'')):'Their slip'):'';
+    const tg=$('gTag'); tg.className='tag2'+(you&&bad?'':' gift');
+    const bt=bestSan?(white?no+'.':no+'…')+bestSan:'';
+    tg.innerHTML=''; if(bt){ tg.insertAdjacentHTML('beforeend','<i class="bdot"></i>'); tg.append((m&&m.who==='you'&&m.missedMate?'Missed mate. ':'')+'Best was '+bt); }
+    else if(m&&m.who==='opponent') tg.textContent='Their slip';
     $('gCur').setAttribute('x1',x(at)); $('gCur').setAttribute('x2',x(at));
     $('gFirst').disabled=$('gPrev').disabled=at===0; $('gNext').disabled=at===n;
     list.querySelectorAll('button').forEach(bn=>bn.setAttribute('aria-current',+bn.dataset.p===at));
@@ -936,9 +943,9 @@ async function rateGame(g,rb){
   try{
     const ms=rp.sans.length>120?300:450;
     const rows=await analyzeGame(new Chess(),rp.sans,g.side||'w',ms,i=>{ bar.style.width=((i+1)/rp.sans.length*100).toFixed(0)+'%'; rb.textContent='Rating move '+Math.ceil((i+1)/2)+' of '+Math.ceil(rp.sans.length/2); });
-    g.cl=rows.map(r=>r.cls).join('');
+    g.cl=rows.map(r=>r.cls).join(''); g.bm=rows.map(r=>r.bu||'-').join(' ');
     g.ev=[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(',');
-    delete g._rp; save(); toast('Every move rated');
+    delete g._rp; save(); toast('Every move rated, best moves added');
   }catch(e){ toast('Rating stopped. Try again.'); }
   if(wake) wake.release().catch(()=>{});
   if(location.hash==='#game-'+S.games.indexOf(g)) renderReplay(g);
@@ -1066,12 +1073,12 @@ async function reviewGame(){
   }
   const reason=REASONS.concat(['Won cleanly']).includes(out.reason)?out.reason:(res==='W'?'Won cleanly':'Missed tactic');
   const entry={d:localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||'',
-    acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu}))};
+    acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu}))};
   entry.key=entry.link||[entry.d,entry.vs,entry.res,moves.length,moves.slice(0,8).map(x=>x.san).join('')].join('|');
   const dup=S.games.some(x=>(x.key||x.link)===entry.key);
   S.games=S.games.filter(x=>(x.key||x.link)!==entry.key);
   S.games.push(entry); if(S.games.length>300) S.games=S.games.slice(-300);
-  [...S.games].sort((a,b)=>a.d<b.d?1:-1).slice(40).forEach(x=>{ delete x.mv; delete x.ev; delete x.cl; });
+  [...S.games].sort((a,b)=>a.d<b.d?1:-1).slice(40).forEach(x=>{ delete x.mv; delete x.ev; delete x.cl; delete x.bm; });
   const elo=+(side==='w'?h.WhiteElo:h.BlackElo), base=+(String(h.TimeControl||'').split('+')[0]);
   if(elo&&base>=600&&!String(h.TimeControl).includes('/')){ const old=S.ratings.find(o=>o.d===entry.d)||{}; S.ratings=S.ratings.filter(o=>o.d!==entry.d).concat({d:entry.d,rapid:elo,puzzle:old.puzzle||null,rush:old.rush||null}); }
   save(); $('pgnIn').value=''; finish('');
