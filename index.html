@@ -1267,7 +1267,7 @@ var xReady=true;
 dataReady();
 renderVisible();
 if(S.user) pull(false);
-if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator && location.protocol==='https:'){ const had=!!navigator.serviceWorker.controller; let done=false; navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(had&&!done){ done=true; location.reload(); } }); navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) r.update().catch(()=>{}); }); }).catch(()=>{}); }
 })();
 </script>
 

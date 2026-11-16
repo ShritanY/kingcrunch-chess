@@ -1,4 +1,4 @@
-const CACHE = 'chess-coach-v11';
+const CACHE = 'chess-coach-v12';
 const SHELL = [
   './',
   './index.html',
@@ -30,6 +30,22 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (url.origin !== location.origin && !isFont) return;
+
+  // The page itself: try the network first so updates show up on the next open.
+  if (req.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('.html')) {
+    event.respondWith(
+      caches.open(CACHE).then(async cache => {
+        try {
+          const res = await Promise.race([fetch(req, { cache: 'no-cache' }), new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 4000))]);
+          if (res && res.ok) cache.put(req, res.clone());
+          return res;
+        } catch (e) {
+          return (await cache.match(req, { ignoreSearch: true })) || (await cache.match('./index.html')) || fetch(req);
+        }
+      })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.open(CACHE).then(async cache => {
