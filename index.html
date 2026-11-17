@@ -745,7 +745,7 @@ function renderPlan(){
   gb.onclick=()=>{ const was=S.gates[P.n]; S.gates[P.n]=!was; if(!was&&P.n<4){ S.phase=P.n+1; viewPhase=S.phase; } save(); renderPlan(); toast(was?'Gate reopened':(P.n<4?'Phase '+(P.n+1)+' begins':'Program complete')); };
   const pb=$('phaseBack'); pb.hidden=S.phase<2; pb.textContent='Go back to phase '+(S.phase-1);
   pb.onclick=()=>{ S.gates[S.phase-1]=false; S.phase--; viewPhase=S.phase; save(); renderPlan(); toast('Back in phase '+S.phase); };
-  $('bkInfo').textContent='Everything is stored on this phone. Copy a backup now and then and keep it in Notes. '+(S.lastBackup?'Last backup: '+fmtD(D(S.lastBackup))+'.':'No backup yet.');
+  $('bkInfo').textContent='Everything is stored on this phone. Copy a backup now and then and keep it in Notes. '+(S.lastBackup?'Last backup: '+fmtD(D(S.lastBackup))+'.':'No backup yet.')+' App updated Nov 16.';
   document.querySelectorAll('#weekSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.w===S.week));
   $('weekKv').innerHTML=SCHED[S.week].map((d,i)=>`<span class="mono">${DAYS[i].slice(0,3)}</span><span>${d.map(x=>x[0]).join(', ')}</span>`).join('');
 }
@@ -762,7 +762,7 @@ function boardSVG(fen,played,best,flip,tint,acol){
     pc+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="11" style="font-family:var(--glyph)" fill="${w?'#FFFFFF':'#151314'}" stroke="${w?'#151314':'none'}" stroke-width="${w?.55:0}" paint-order="stroke">${GL[ch.toLowerCase()]}︎</text>`; f++; } });
   let ar='';
   if(best&&best.length>=4){ const [x1,y1]=xy(best.slice(0,2)), [x2,y2]=xy(best.slice(2,4)); const ax=x1+6.25, ay=y1+6.25, bx=x2+6.25, by=y2+6.25, L=Math.hypot(bx-ax,by-ay)||1, ux=(bx-ax)/L, uy=(by-ay)/L;
-    ar=`<line x1="${ax}" y1="${ay}" x2="${bx-ux*3.2}" y2="${by-uy*3.2}" stroke="${acol||'var(--violet)'}" stroke-width="2.4" stroke-linecap="round" opacity=".9"/><path d="M${bx} ${by} L${bx-ux*5-uy*3.4} ${by-uy*5+ux*3.4} L${bx-ux*5+uy*3.4} ${by-uy*5-ux*3.4}Z" fill="${acol||'var(--violet)'}" opacity=".9"/>`; }
+    ar=`<line x1="${ax}" y1="${ay}" x2="${bx-ux*3.2}" y2="${by-uy*3.2}" stroke="${acol||'var(--q-B)'}" stroke-width="2.4" stroke-linecap="round" opacity=".9"/><path d="M${bx} ${by} L${bx-ux*5-uy*3.4} ${by-uy*5+ux*3.4} L${bx-ux*5+uy*3.4} ${by-uy*5-ux*3.4}Z" fill="${acol||'var(--q-B)'}" opacity=".9"/>`; }
   return `<svg class="board" viewBox="0 0 100 100" role="img" aria-label="Board position">${sq}${pc}${ar}</svg>`;
 }
 
@@ -878,7 +878,7 @@ function renderReplay(g){
   if(cl){ for(let i=1;i<=n;i++){ const c=cl[i-1]; if(!QNOTE[c]) continue; const you=mineP(i); marks+=`<circle cx="${x(i).toFixed(1)}" cy="${y(rp.ev[i]).toFixed(1)}" r="${you?3.6:2.6}" fill="${Q[c].col}" fill-opacity="${you?1:.55}" stroke="var(--surface)" stroke-width="1.2"/>`; } }
   else marks=(g.moments||[]).filter(m=>typeof m.ply==='number'&&m.ply<n).map(m=>{ const i=m.ply+1; return `<circle cx="${x(i).toFixed(1)}" cy="${y(rp.ev[i]).toFixed(1)}" r="3.6" fill="${m.who==='you'?'var(--err)':'var(--foot)'}" stroke="var(--surface)" stroke-width="1.5"/>`; }).join('');
   const cnt={you:{},opp:{}}; if(cl) for(let i=1;i<=n;i++){ const k=mineP(i)?'you':'opp'; cnt[k][cl[i-1]]=(cnt[k][cl[i-1]]||0)+1; }
-  const bmOk=!!rp.bm, rateBox=`<div class="rate"><p class="mono foot">${cl?'Best-move arrows aren’t saved for this game yet.':'This game was reviewed before move ratings existed.'}</p><button class="btn sec" type="button" id="gRate">${cl?'Add best moves':'Rate every move'}</button><div class="prog" id="gRateP" hidden><i></i></div></div>`;
+  const bmOk=!!rp.bm, rateBox=`<div class="rate"><p class="mono foot">${cl?'This game was rated by the older, quicker engine. Re-check it for best-move arrows and sharper ratings.':'This game was reviewed before move ratings existed.'}</p><button class="btn sec" type="button" id="gRate">${cl?'Re-check this game':'Rate every move'}</button><div class="prog" id="gRateP" hidden><i></i></div></div>`;
   const qual=cl?`<div class="qual" role="table" aria-label="Move ratings"><div class="hd"><span>Rating</span><span class="n">You</span><span class="n">Them</span></div>${QORDER.map(c=>`<div class="q" data-c="${c}" role="row"><span><i style="background:${Q[c].col}">${Q[c].glyph}</i>${Q[c].name}</span><span class="n">${cnt.you[c]||0}</span><span class="n">${cnt.opp[c]||0}</span></div>`).join('')}</div>${bmOk?'':rateBox}`
     :rateBox;
   box.innerHTML=`<div class="section" style="margin:0"><span>Advantage, move by move</span><span class="mono foot">Drag to replay</span></div>
@@ -939,10 +939,10 @@ async function rateGame(g,rb){
   const rp=replayData(g); if(!rp) return;
   rb.disabled=true; rb.textContent='Rating moves…'; const pb=$('gRateP'); pb.hidden=false; const bar=pb.querySelector('i');
   let wake=null; try{ if(navigator.wakeLock) wake=await navigator.wakeLock.request('screen'); }catch(e){}
-  try{ await engine(); }catch(e){ rb.disabled=false; rb.textContent='Rate every move'; pb.hidden=true; toast('The engine couldn’t start on this device'); return; }
+  try{ await engine(); }catch(e){ rb.disabled=false; rb.textContent=g.cl?'Re-check this game':'Rate every move'; pb.hidden=true; toast('The engine couldn’t start on this device'); return; }
   try{
     const ms=rp.sans.length>120?300:450;
-    const rows=await analyzeGame(new Chess(),rp.sans,g.side||'w',ms,i=>{ bar.style.width=((i+1)/rp.sans.length*100).toFixed(0)+'%'; rb.textContent='Rating move '+Math.ceil((i+1)/2)+' of '+Math.ceil(rp.sans.length/2); });
+    const rows=await analyzeGame(new Chess(),rp.sans,g.side||'w',ms,i=>{ bar.style.width=((i+1)/rp.sans.length*100).toFixed(0)+'%'; rb.textContent='Rating move '+Math.ceil((i+1)/2)+' of '+Math.ceil(rp.sans.length/2); },(j,n)=>{ rb.textContent='Double-checking '+(j+1)+' of '+n; });
     g.cl=rows.map(r=>r.cls).join(''); g.bm=rows.map(r=>r.bu||'-').join(' ');
     g.ev=[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(',');
     delete g._rp; save(); toast('Every move rated, best moves added');
@@ -974,16 +974,23 @@ $('gdDel').onclick=()=>{ const idx=gdIdx; if(idx===null) return; const removed=S
 
 
 let eng=null, engReady=null, engL=[];
+function bootEngine(file,limit){ return new Promise((res,rej)=>{
+  let w; try{ w=new Worker(file); }catch(e){ rej(e); return; }
+  let n=0; const stop=err=>{ clearInterval(iv); try{ w.terminate(); }catch(_){} rej(err); };
+  const iv=setInterval(()=>{ if(++n>limit*2) stop(new Error('timeout')); else w.postMessage('uci'); },500);
+  w.onerror=e=>{ if(e&&e.preventDefault) e.preventDefault(); stop(new Error('engine')); };
+  w.onmessage=e=>{ const l=typeof e.data==='string'?e.data.trim():''; if(l==='uciok'){ clearInterval(iv); w.onerror=null; res(w); } };
+  w.postMessage('uci');
+}); }
 function engine(){
   if(engReady) return engReady;
-  engReady=new Promise((res,rej)=>{
-    try{ eng=new Worker('stockfish.js'); }catch(e){ rej(e); return; }
-    eng.onmessage=e=>{ const l=typeof e.data==='string'?e.data.trim():''; engL.slice().forEach(f=>f(l)); };
-    eng.onerror=()=>rej(new Error('engine'));
-    let n=0; const iv=setInterval(()=>{ if(++n>40){clearInterval(iv);rej(new Error('timeout'));} else eng.postMessage('uci'); },500);
-    const f=l=>{ if(l!=='uciok') return; clearInterval(iv); engL=engL.filter(x=>x!==f); const g=l2=>{ if(l2==='readyok'){ engL=engL.filter(x=>x!==g); res(); } }; engL.push(g); eng.postMessage('setoption name MultiPV value 2'); eng.postMessage('isready'); };
-    engL.push(f); eng.postMessage('uci');
-  });
+  /* Stockfish 18 lite first; the older, weaker engine if this device can't run it */
+  engReady=(typeof WebAssembly==='object'?bootEngine('sf18.js',30):Promise.reject(new Error('no wasm')))
+    .catch(()=>bootEngine('stockfish.js',20))
+    .then(w=>new Promise(res=>{ eng=w;
+      eng.onmessage=e=>{ const l=typeof e.data==='string'?e.data.trim():''; engL.slice().forEach(f=>f(l)); };
+      const g=l=>{ if(l==='readyok'){ engL=engL.filter(x=>x!==g); res(); } }; engL.push(g);
+      eng.postMessage('setoption name MultiPV value 2'); eng.postMessage('isready'); }));
   engReady.catch(()=>{ engReady=null; eng=null; });
   return engReady;
 }
@@ -1012,7 +1019,7 @@ $('pgnIn').addEventListener('input',()=>{ if(msg.classList.contains('err')) say(
 function start(){ if(reviewing) return; reviewGame().catch(()=>finish('The review stopped. Try once more.',true)); }
 function finish(t,isErr){ reviewing=false; morph(false); if(wake){ wake.release().catch(()=>{}); wake=null; } say(t||'',isErr); }
 
-async function analyzeGame(g,sans,side,ms,onStep){
+async function analyzeGame(g,sans,side,ms,onStep,onCheck){
   const sg=side==='w'?1:-1, rows=[];
   let prev=await evalFen(g.fen(),ms), prevW=whiteVal(prev,g.turn());
   let prevTo='';
@@ -1025,11 +1032,30 @@ async function analyzeGame(g,sans,side,ms,onStep){
     const s=turn==='w'?1:-1, wBefore=winPct(s*prevW), wAfter=winPct(s*afterW), drop=wBefore-wAfter, mateAvail=prev.mate!==null&&prev.mate>0?prev.mate:null;
     const isBest=(mv.from+mv.to+(mv.promotion||''))===bestU, gap2=prev.s2?winPct(scoreCp(prev))-winPct(scoreCp(prev.s2)):null;
     let sac=false; try{ sac=isSac(fenBefore,mv); }catch(e){}
-    rows.push({i,no:+fenBefore.split(' ')[5],turn,san:mv.san,pu:mv.from+mv.to,bu:bestU,best:bestSan,pv,fenBefore,beforeU:sg*prevW,afterU:sg*afterW,drop,mine:turn===side,mateAvail,keptMate:Math.abs(afterW)>=9000&&Math.sign(afterW)===s,legal,isBest,gap2,sac,wBefore,wAfter,recap:!!mv.captured&&mv.to===prevTo,bigCap:!!mv.captured&&QV[mv.captured]>QV[mv.piece]});
+    const over=g.in_checkmate()||g.in_draw()||g.in_stalemate();
+    rows.push({i,uci:mv.from+mv.to+(mv.promotion||''),fenAfter:g.fen(),endW:over?afterW:null,no:+fenBefore.split(' ')[5],turn,san:mv.san,pu:mv.from+mv.to,bu:bestU,best:bestSan,pv,fenBefore,beforeU:sg*prevW,afterU:sg*afterW,drop,mine:turn===side,mateAvail,keptMate:Math.abs(afterW)>=9000&&Math.sign(afterW)===s,legal,isBest,gap2,sac,wBefore,wAfter,recap:!!mv.captured&&mv.to===prevTo,bigCap:!!mv.captured&&QV[mv.captured]>QV[mv.piece]});
     prevTo=mv.to; prev=after; prevW=afterW; if(onStep) onStep(i);
   }
   rows.forEach((r,k)=>{ r.cls=moveClass(Object.assign({},r,{prevDrop:k?rows[k-1].drop:0})); });
+  await recheck(rows,side,Math.round(ms*2.5),onCheck);
   return rows;
+}
+/* Every move the quick pass flags gets a second, longer look before it's rated */
+function setBefore(r,pre,preW,sg){ const s=r.turn==='w'?1:-1;
+  r.beforeU=sg*preW; r.wBefore=winPct(s*preW); r.drop=r.wBefore-r.wAfter; r.bu=pre.best;
+  r.best=sanLine(r.fenBefore,[pre.best],1)[0]||''; r.pv=sanLine(r.fenBefore,pre.pv,7); r.isBest=r.uci===pre.best;
+  r.gap2=pre.s2?winPct(scoreCp(pre))-winPct(scoreCp(pre.s2)):null; r.mateAvail=pre.mate!==null&&pre.mate>0?pre.mate:null; }
+async function recheck(rows,side,ms,onStep){
+  const sg=side==='w'?1:-1, cache={}, ev=async fen=>cache[fen]||(cache[fen]=await evalFen(fen,ms));
+  const flag=rows.map((r,k)=>'bgimxu'.includes(r.cls)?k:-1).filter(k=>k>=0);
+  for(let j=0;j<flag.length;j++){ const k=flag[j], r=rows[k], s=r.turn==='w'?1:-1; if(onStep) onStep(j,flag.length);
+    const pre=await ev(r.fenBefore), preW=whiteVal(pre,r.turn); setBefore(r,pre,preW,sg);
+    if(k>0){ const q=rows[k-1]; q.afterU=sg*preW; q.wAfter=winPct(-s*preW); q.drop=q.wBefore-q.wAfter; q.keptMate=Math.abs(preW)>=9000&&Math.sign(preW)===-s; }
+    let postW=r.endW;
+    if(postW==null){ const post=await ev(r.fenAfter); postW=whiteVal(post,r.turn==='w'?'b':'w'); if(rows[k+1]) setBefore(rows[k+1],post,postW,sg); }
+    r.afterU=sg*postW; r.wAfter=winPct(s*postW); r.drop=r.wBefore-r.wAfter; r.keptMate=Math.abs(postW)>=9000&&Math.sign(postW)===s;
+  }
+  rows.forEach((r,k)=>{ r.cls=moveClass(Object.assign({},r,{prevDrop:k?rows[k-1].drop:0})); });
 }
 async function reviewGame(){
   const raw=$('pgnIn').value.trim();
@@ -1047,7 +1073,7 @@ async function reviewGame(){
   try{ await engine(); }catch(e){ finish('The engine couldn’t start on this device.',true); return; }
   const ms=moves.length>120?300:500, g=new Chess(); if(h.SetUp==='1'&&h.FEN) g.load(h.FEN);
   const sg=side==='w'?1:-1, total=Math.ceil(moves.length/2);
-  const rows=await analyzeGame(g,moves.map(x=>x.san),side,ms,i=>{ btn.style.setProperty('--p',((i+1)/moves.length*100).toFixed(1)+'%'); say('Move '+Math.min(total,Math.floor(i/2)+1)+' of '+total); });
+  const rows=await analyzeGame(g,moves.map(x=>x.san),side,ms,i=>{ btn.style.setProperty('--p',((i+1)/moves.length*100).toFixed(1)+'%'); say('Move '+Math.min(total,Math.floor(i/2)+1)+' of '+total); },(j,n)=>say('Double-checking '+(j+1)+' of '+n));
   const mine=rows.filter(r=>r.mine), theirs=rows.filter(r=>!r.mine);
   const acc=a=>a.length?Math.round(a.map(r=>Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*Math.max(0,r.drop))-3.1669))).reduce((x,y)=>x+y,0)/a.length):0;
   const blunders=mine.filter(r=>r.drop>=20), mistakes=mine.filter(r=>r.drop>=10&&r.drop<20), tag=r=>r.no+(r.turn==='w'?'.':'…')+r.san;

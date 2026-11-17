@@ -1,9 +1,11 @@
-const CACHE = 'chess-coach-v12';
+const CACHE = 'chess-coach-v13';
 const SHELL = [
   './',
   './index.html',
   './chess.js',
   './stockfish.js',
+  './sf18.js',
+  './sf18.wasm',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',

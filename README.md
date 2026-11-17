@@ -5,3 +5,7 @@ A small daily chess training app: a guided session each day, a phase plan, and g
 Open the site in Safari on your iPhone and tap Share > Add to Home Screen.
 
 Not affiliated with Chess.com.
+
+## Engine
+
+Game reviews run Stockfish 18 (lite, single-threaded build from the `stockfish` npm package, GPL-3.0) in the browser, with Stockfish 10 (`stockfish.js`) as a fallback for devices that can't run WebAssembly. Stockfish source: https://github.com/official-stockfish/Stockfish
