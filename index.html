@@ -484,7 +484,7 @@ const KIND={
   play:{area:'mid',links:[['Play rapid','https://www.chess.com/play/online'],['Before every move','#routine']]},
   review:{area:'mid',links:[['Review a game','#review']]},
   endgame:{area:'end',links:[['Practice','https://lichess.org/practice'],['Pawn endgames',LT+'pawnEndgame']]},
-  openings:{area:'op',links:[['Explorer','https://lichess.org/analysis#explorer'],['Studies',ST('Caro-Kann')]]},
+  openings:{area:'op',links:[['Explorer','https://lichess.org/analysis#explorer'],['Studies','REP']]},
   master:{area:'op',links:[['Studies',ST('annotated master games')]]},
   rush:{area:'tac',links:[['Puzzle Rush','https://www.chess.com/puzzles/rush'],['Storm','https://lichess.org/storm']]},
   reflect:{area:'none',links:[['Your games','#games']]},
@@ -517,7 +517,7 @@ const PHASES=[
   {n:2,name:'Play with a plan',
    topics:[['Piece activity','Activity','mid',[['Studies',ST('piece activity')]]],['Weak squares and outposts','Outposts','mid',[['Studies',ST('outposts')]]],['Open files and rooks','Open files','mid',[['Studies',ST('open file rooks')]]],
     ['Pawn structure','Structure','mid',[['Studies',ST('pawn structure')],['Passed pawns',LT+'advancedPawn']]],['Good and bad bishops','Bishops','mid',[['Studies',ST('good bishop bad bishop')]]],
-    ['Repertoire to move ten','Repertoire','op',[['Explorer','https://lichess.org/analysis#explorer'],['Studies',ST('Caro-Kann')]]],['Hard puzzles, solved in your head','Calculation','tac',[['Puzzles',LT]]],
+    ['Repertoire to move ten','Repertoire','op',[['Explorer','https://lichess.org/analysis#explorer'],['Studies','REP']]],['Hard puzzles, solved in your head','Calculation','tac',[['Puzzles',LT]]],
     ['Rook endgames: Lucena, Philidor','Rook endings','end',[['Practice','https://lichess.org/practice'],['Rook endgames',LT+'rookEndgame']]]],
    gate:{rating:100,text:'Rapid about 100 above your start, and you can explain your opening plans.'}},
   {n:3,name:'Calculate and convert',
@@ -581,12 +581,18 @@ function practiceDone(ds){ const m=S.days[ds]||{}; return practice(ds).every(o=>
 function wld(p){ const o=[]; if(p[0]) o.push(p[0]+(p[0]===1?' win':' wins')); if(p[1]) o.push(p[1]+(p[1]===1?' loss':' losses')); if(p[2]) o.push(p[2]+(p[2]===1?' draw':' draws')); return o.join(', '); }
 function rapid(){ return [...S.ratings].filter(x=>x.rapid).sort((a,b)=>a.d<b.d?-1:1); }
 function since(){ if(S.since) return S.since; const r=rapid(); return r.length?r[0].d:today(); }
-function target(){ const d=D(since()); d.setMonth(d.getMonth()+3*S.phase); return d; }
+function target(){ const d=D(since()); d.setMonth(d.getMonth()+3*(S.phase-Math.min(S.startPhase||1,S.phase)+1)); return d; }
+/* where a new player starts, from their rapid rating */
+function phaseFor(r){ return r<900?1:r<1300?2:r<1700?3:4; }
+function placeByRating(r){ if(S.placed||!r) return; S.placed=1; const fresh=S.phase===1&&!Object.keys(S.topics).some(k=>S.topics[k])&&!Object.keys(S.gates).some(k=>S.gates[k]); const ph=phaseFor(r);
+  if(fresh&&ph>1){ S.phase=ph; S.startPhase=ph; setTimeout(()=>toast('At '+r+' rapid you start in phase '+ph+': '+PHASES[ph-1].name.toLowerCase()),900); } }
 function nextTopic(){ const P=PHASES[S.phase-1]; const open=P.topics.map((t,k)=>({t,k})).filter(x=>!S.topics[S.phase+'-'+x.k]);
   return {P,pick:open.find(x=>S.focus.includes(x.t[2]))||open[0]}; }
 function fmtD(d){ return MONTHS[d.getMonth()]+' '+d.getDate(); }
 function lanes(el,n,on){ el.innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join(''); }
-function chipLinks(el,links){ el.innerHTML=''; links.forEach(([l,u])=>{ const a=document.createElement('a'); a.className='chip'+(u.startsWith('#')?'':' ext'); a.href=u; a.textContent=l; if(!u.startsWith('#')){a.target='_blank';a.rel='noopener';} el.append(a); }); }
+/* opening links follow what this player actually plays */
+function topOpening(){ const n={}; S.games.forEach(g=>{ if(g.opening) n[g.opening]=(n[g.opening]||0)+1; }); const t=Object.entries(n).sort((a,b)=>b[1]-a[1])[0]; return t&&t[1]>=2?t[0].replace(/\s*\(.*$/,''):'opening principles'; }
+function chipLinks(el,links){ el.innerHTML=''; links.forEach(([l,u])=>{ if(u==='REP') u=ST(topOpening()); const a=document.createElement('a'); a.className='chip'+(u.startsWith('#')?'':' ext'); a.href=u; a.textContent=l; if(!u.startsWith('#')){a.target='_blank';a.rel='noopener';} el.append(a); }); }
 function row(lead,title,sub,state,onTap,trail){
   const b=document.createElement('button'); b.type='button'; b.className='row';
   if(state==='toggle-on') b.setAttribute('aria-pressed','true'); else if(state==='toggle-off') b.setAttribute('aria-pressed','false'); else if(state==='done') b.classList.add('done');
@@ -1362,6 +1368,7 @@ async function pull(force){
   try{
     const st=await getJSON(API+encodeURIComponent(S.user)+'/stats');
     const rp=st&&st.chess_rapid&&st.chess_rapid.last;
+    if(rp&&rp.rating) placeByRating(rp.rating); else if(st) S.placed=1;
     if(rp&&rp.rating){ const d=rp.date?iso(new Date(rp.date*1000)):today(), cur=rapid().at(-1);
       if(!cur||cur.rapid!==rp.rating){ const old=S.ratings.find(o=>o.d===d)||{}; S.ratings=S.ratings.filter(o=>o.d!==d).concat(Object.assign({},old,{d,rapid:rp.rating})); } }
     const ar=await getJSON(API+encodeURIComponent(S.user)+'/games/archives');
