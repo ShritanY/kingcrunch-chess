@@ -213,6 +213,14 @@ button:focus-visible,a:focus-visible,textarea:focus-visible{outline:1.5px solid 
 .ico.wait{background:none;color:var(--foot);border:1.5px dashed var(--foot)}
 .row .trail{flex:none;font:400 .78rem var(--mono);color:var(--foot)}
 .row .trail.go{color:var(--violet)}
+.pzboard{touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer;user-select:none;-webkit-user-select:none}
+.board.big{width:100%;height:auto;aspect-ratio:1;border-radius:10px}
+.pzwait{width:100%;aspect-ratio:1;border-radius:10px;background:var(--pill);opacity:.5}
+.pzmsg{min-height:2.6em;color:var(--foot);font-size:.78rem;line-height:1.3}
+.pzmsg.err{color:var(--err)} .pzmsg.ok{color:var(--q-B)}
+.pzbtns button{font:400 .7rem var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.pzbtns button.go{background:var(--violet);color:var(--on-violet)}
+#pzSeg .chip[aria-pressed=true]{background:var(--ink);color:var(--on-ink)}
 .qpill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;min-height:26px;padding:0 10px 0 4px;border-radius:999px;font:400 .72rem var(--mono);color:var(--ink);background:var(--pill)}
 .qpill b{display:grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:999px;color:#fff;font:400 .7rem var(--mono)}
 .qual{display:grid;grid-template-columns:1fr auto auto;gap:0;border-radius:14px;overflow:hidden;background:var(--bg)}
@@ -455,6 +463,16 @@ body{margin:0}
     </div>
   </section>
 
+  <section class="screen" id="s-puzzle" hidden>
+    <div class="bar"><button class="back" type="button" data-back="home"><svg aria-hidden="true"><use href="#chev-l"/></svg>Back</button><span class="mono foot" id="pzCount"></span></div>
+    <div class="headblock"><h1 id="pzHead"></h1><div class="mono foot" id="pzSub"></div></div>
+    <div id="pzBoard" class="pzboard"></div>
+    <div class="pzmsg mono" id="pzMsg" role="status"></div>
+    <div class="steps2 pzbtns"><button type="button" id="pzHint">Hint</button><button type="button" id="pzShow">Show answer</button><button type="button" id="pzNext">Next</button></div>
+    <div class="section"><span>Practice a theme</span></div>
+    <div class="chips" id="pzSeg"></div>
+    <p class="mono foot" id="pzFoot"></p>
+  </section>
   <section class="screen" id="s-routine" hidden>
     <div class="bar"><button class="back" type="button" data-back="home"><svg aria-hidden="true"><use href="#chev-l"/></svg>Today</button></div>
     <div class="headblock"><h1>Before every move</h1><div class="mono foot">Run through these once before you play.</div></div>
@@ -480,7 +498,7 @@ const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 const AREAS={op:'Openings',mid:'Middlegame',end:'Endgames',tac:'Tactics'};
 const LT='https://lichess.org/training/', ST=q=>'https://lichess.org/study/search?q='+encodeURIComponent(q), YT=q=>'https://www.youtube.com/results?search_query='+encodeURIComponent(q);
 const KIND={
-  puzzles:{area:'tac',links:[['Lichess puzzles',LT],['chess.com','https://www.chess.com/puzzles']]},
+  puzzles:{area:'tac',links:[['Solve here',LT],['chess.com','https://www.chess.com/puzzles']]},
   play:{area:'mid',links:[['Play rapid','https://www.chess.com/play/online'],['Before every move','#routine']]},
   review:{area:'mid',links:[['Review a game','#review']]},
   endgame:{area:'end',links:[['Practice','https://lichess.org/practice'],['Pawn endgames',LT+'pawnEndgame']]},
@@ -592,7 +610,7 @@ function fmtD(d){ return MONTHS[d.getMonth()]+' '+d.getDate(); }
 function lanes(el,n,on){ el.innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join(''); }
 /* opening links follow what this player actually plays */
 function topOpening(){ const n={}; S.games.forEach(g=>{ if(g.opening) n[g.opening]=(n[g.opening]||0)+1; }); const t=Object.entries(n).sort((a,b)=>b[1]-a[1])[0]; return t&&t[1]>=2?t[0].replace(/\s*\(.*$/,''):'opening principles'; }
-function chipLinks(el,links){ el.innerHTML=''; links.forEach(([l,u])=>{ if(u==='REP') u=ST(topOpening()); const a=document.createElement('a'); a.className='chip'+(u.startsWith('#')?'':' ext'); a.href=u; a.textContent=l; if(!u.startsWith('#')){a.target='_blank';a.rel='noopener';} el.append(a); }); }
+function chipLinks(el,links){ el.innerHTML=''; links.forEach(([l,u])=>{ if(u==='REP') u=ST(topOpening()); if(u.startsWith(LT)&&u!==LT+'coordinate') u='#puzzle-'+(u.slice(LT.length)||'mix'); const a=document.createElement('a'); a.className='chip'+(u.startsWith('#')?'':' ext'); a.href=u; a.textContent=l; if(!u.startsWith('#')){a.target='_blank';a.rel='noopener';} el.append(a); }); }
 function row(lead,title,sub,state,onTap,trail){
   const b=document.createElement('button'); b.type='button'; b.className='row';
   if(state==='toggle-on') b.setAttribute('aria-pressed','true'); else if(state==='toggle-off') b.setAttribute('aria-pressed','false'); else if(state==='done') b.classList.add('done');
@@ -651,7 +669,7 @@ function renderHome(){
   gamesOn(t).reverse().forEach(({g,idx})=>box.append(trailRow(lens,R3[g.res]+' vs '+(g.vs||'opponent'),'Reviewed'+(g.acc?' · accuracy '+g.acc:''),'→',()=>{ gdFrom='home'; location.hash='game-'+idx; })));
   const sug=$('sugRows'); sug.innerHTML=''; const pr=practice(t);
   $('sugBlock').hidden=!pr.length;
-  pr.forEach(({x:[title,sub,kind],i})=>{ const pk=nextTopic().pick; sug.append(trailRow(taskIcon(kind),kind==='study'&&pk?'Study: '+pk.t[1].toLowerCase():title,m[i]?'Done today':sub,m[i]?'✓':'→',()=>{ sessI=i; sessPinned=true; location.hash='session'; })); });
+  pr.forEach(({x:[title,sub,kind],i})=>{ const pk=nextTopic().pick; const pzN=pzToday()[0], isPz=kind==='puzzles'; sug.append(trailRow(taskIcon(kind),kind==='study'&&pk?'Study: '+pk.t[1].toLowerCase():title,m[i]?'Done today':isPz?(pzN?pzN+' of '+PZ_GOAL+' solved today':PZ_GOAL+' puzzles, right here'):sub,m[i]?'✓':'→',()=>{ if(isPz){ location.hash='puzzle'; return; } sessI=i; sessPinned=true; location.hash='session'; })); });
   const th=$('homeThumb'); th.classList.remove('stack');
   th.innerHTML='<a class="btn sec" href="#review">Review</a>'+(pr.length?'<a class="btn go" href="#session">'+(practiceDone(t)?'Practice more':'Start practice')+'</a>':'<a class="btn go" href="https://www.chess.com/play/online" target="_blank" rel="noopener">Play</a>');
 }
@@ -776,6 +794,95 @@ function renderPlan(){
 document.querySelectorAll('#weekSeg button').forEach(b=>b.onclick=()=>{ S.week=b.dataset.w; save(); renderPlan(); });
 
 
+/* ---- puzzles, solved on a board in the app ---- */
+const PZ_T=[['mix','Mix'],['mine','Your games'],['fork','Forks'],['pin','Pins'],['skewer','Skewers'],['hangingPiece','Loose pieces'],['mateIn1','Mate in 1'],['mateIn2','Mate in 2'],['discoveredAttack','Discoveries'],['backRankMate','Back rank'],['endgame','Endgames']];
+const PZ_GOAL=10;
+let pz=null, pzAngle='mix', pzBusy=false, pzFrom='home', pzLoadN=0, pzLastId='';
+function pzDay(){ if(!S.pz||typeof S.pz!=='object') S.pz={days:{},seen:[]}; if(!S.pz.days) S.pz.days={}; if(!Array.isArray(S.pz.seen)) S.pz.seen=[]; const t=today(); return S.pz.days[t]||(S.pz.days[t]=[0,0]); }
+function pzToday(){ const d=S.pz&&S.pz.days&&S.pz.days[today()]; return d||[0,0]; }
+function pzDiff(){ const r=rapid(), v=r.length?r.at(-1).rapid:0; return v<700?'easiest':v<1100?'easier':v<1600?'normal':'harder'; }
+function ownPuzzles(){ const out=[]; S.games.forEach(g=>(g.moments||[]).forEach(m=>{ if(m.who==='you'&&m.fen&&m.bu&&m.bu!==m.pu) out.push({key:(g.key||g.link||g.d+'|'+g.vs)+'#'+m.ply,fen:m.fen,sol:[m.bu],vs:g.vs||'opponent',played:m.move,pu:(m.pu||'').slice(0,4),why:m.why||'',line:m.line||m.best||''}); })); return out; }
+function pzTitle(a){ const t=PZ_T.find(x=>x[0]===a); return t?t[1]:a.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase()); }
+function pzSay(t,cls){ const m=$('pzMsg'); m.textContent=t||''; m.className='pzmsg mono'+(cls?' '+cls:''); }
+function pzSetOwn(note){ const all=ownPuzzles(); if(!all.length) return false; pzDay();
+  const fresh=all.filter(p=>!S.pz.seen.includes(p.key)), pick=(fresh.length?fresh:all)[Math.floor(Math.random()*(fresh.length?fresh.length:all.length))];
+  const c=new Chess(); if(!c.load(pick.fen)) return false;
+  pz={src:'mine',c,sol:pick.sol,i:0,flip:c.turn()==='b',sel:null,last:null,miss:false,done:false,key:pick.key,own:pick,note:note||''}; return true; }
+async function pzLoad(){
+  const n=++pzLoadN; pz=null; pzBusy=true; pzRender(); pzSay('Finding a puzzle…');
+  if(pzAngle==='mine'){ pzBusy=false; const got=pzSetOwn(); pzRender(); pzSay(got?'':'No puzzles from your games yet. Review a game and your missed chances show up here.'); return; }
+  let ok=false;
+  for(let tries=0;tries<2&&!ok;tries++){
+    try{ const r=await fetch('https://lichess.org/api/puzzle/next?difficulty='+pzDiff()+(pzAngle==='mix'?'':'&angle='+encodeURIComponent(pzAngle)),{headers:{Accept:'application/json'}});
+      if(n!==pzLoadN) return; if(!r.ok) throw new Error('http '+r.status);
+      const j=await r.json(); if(n!==pzLoadN) return;
+      const c=new Chess(); for(const m of String(j.game.pgn||'').split(/\s+/).filter(Boolean)){ if(!c.move(m,{sloppy:true})) throw new Error('bad pgn'); }
+      const sol=(j.puzzle.solution||[]).filter(u=>UCI.test(u)); if(!sol.length) throw new Error('no solution');
+      const legal=u=>c.moves({verbose:true}).some(m=>m.from===u.slice(0,2)&&m.to===u.slice(2,4));
+      if(!legal(sol[0])){ c.undo(); if(!legal(sol[0])) throw new Error('mismatch'); }
+      if(j.puzzle.id===pzLastId&&!tries) continue;
+      const h=c.history({verbose:true}).at(-1); pzLastId=j.puzzle.id;
+      pz={src:'lichess',c,sol,i:0,flip:c.turn()==='b',sel:null,last:h?h.from+h.to:null,miss:false,done:false,key:'L'+j.puzzle.id,id:j.puzzle.id,rating:j.puzzle.rating,note:''}; ok=true;
+    }catch(e){ if(n!==pzLoadN) return; break; }
+  }
+  pzBusy=false;
+  if(!ok&&!pzSetOwn('Couldn’t reach the puzzle library, so here’s one from your games.')) { pzRender(); pzSay('Couldn’t load a puzzle. Check your connection and tap Next.','err'); return; }
+  pzRender(); pzSay(pz.note||'');
+}
+function pzRender(){
+  const t=pzToday(); $('pzCount').textContent=t[0]?t[0]+' solved today':'';
+  const seg=$('pzSeg'); if(!seg.children.length) PZ_T.forEach(([a,l])=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'; b.dataset.a=a; b.textContent=l; b.onclick=()=>{ if(pzAngle===a&&pz&&!pz.done) return; location.hash='puzzle-'+a; }; seg.append(b); });
+  if(!PZ_T.some(x=>x[0]===pzAngle)&&!seg.querySelector('[data-a="'+pzAngle+'"]')){ const b=document.createElement('button'); b.type='button'; b.className='chip'; b.dataset.a=pzAngle; b.textContent=pzTitle(pzAngle); seg.prepend(b); }
+  seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.a===pzAngle));
+  const box=$('pzBoard');
+  if(!pz){ box.innerHTML='<div class="pzwait"></div>'; $('pzHead').textContent=pzTitle(pzAngle); $('pzSub').textContent=''; $('pzFoot').innerHTML=''; $('pzHint').disabled=$('pzShow').disabled=true; return; }
+  const c=pz.c, turn=c.turn()==='w'?'White':'Black';
+  $('pzHead').textContent=pz.done?(pz.shown?'Answer shown':pz.miss?'Solved with help':'Solved'):turn+' to move';
+  $('pzSub').textContent=pz.src==='mine'?'From your game vs '+pz.own.vs+'. Find a better move than '+pz.own.played+'.':pzTitle(pzAngle)+(pz.rating?' · puzzle rating '+pz.rating:'');
+  let svg=boardSVG(c.fen(),pz.last,null,pz.flip,'var(--tint)');
+  const xy=s=>{ const f=s.charCodeAt(0)-97, r=+s[1]-1; return pz.flip?[(7-f)*12.5,r*12.5]:[f*12.5,(7-r)*12.5]; };
+  let ov='';
+  if(pz.bad){ const [x,y]=xy(pz.bad); ov+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="var(--err-tint)"/>`; }
+  if(pz.hint){ const [x,y]=xy(pz.hint); ov+=`<rect x="${x+.6}" y="${y+.6}" width="11.3" height="11.3" fill="none" stroke="var(--q-B)" stroke-width="1.2" rx="1.5"/>`; }
+  if(pz.sel){ const [x,y]=xy(pz.sel); ov+=`<rect x="${x+.6}" y="${y+.6}" width="11.3" height="11.3" fill="none" stroke="var(--violet)" stroke-width="1.4" rx="1.5"/>`;
+    c.moves({square:pz.sel,verbose:true}).forEach(m=>{ const [a,b]=xy(m.to); ov+=m.captured?`<circle cx="${a+6.25}" cy="${b+6.25}" r="5.3" fill="none" stroke="var(--violet)" stroke-width="1.1" opacity=".9"/>`:`<circle cx="${a+6.25}" cy="${b+6.25}" r="1.9" fill="var(--violet)" opacity=".9"/>`; }); }
+  box.innerHTML=svg.replace('</svg>',ov+'</svg>').replace('class="board"','class="board big"').replace('aria-label="Board position"','aria-label="Puzzle board. Tap a piece, then tap where it goes."');
+  $('pzHint').disabled=$('pzShow').disabled=pz.done||pzBusy;
+  $('pzNext').classList.toggle('go',pz.done);
+  const f=$('pzFoot'); f.innerHTML='';
+  if(pz.src==='lichess'){ f.append('Puzzle from '); const a=document.createElement('a'); a.href='https://lichess.org/training/'+pz.id; a.target='_blank'; a.rel='noopener'; a.textContent='lichess.org'; a.style.color='inherit'; f.append(a,', free to use (CC0).'); }
+}
+function pzSquare(e){ if(!pz||pz.done||pzBusy) return; const svg=$('pzBoard').querySelector('svg'); if(!svg) return; const r=svg.getBoundingClientRect(); if(!r.width) return;
+  let f=Math.floor((e.clientX-r.left)/r.width*8), k=Math.floor((e.clientY-r.top)/r.height*8); if(f<0||f>7||k<0||k>7) return;
+  const sq=pz.flip?'abcdefgh'[7-f]+(k+1):'abcdefgh'[f]+(8-k), c=pz.c, pc=c.get(sq);
+  if(pz.sel&&pz.sel!==sq&&c.moves({square:pz.sel,verbose:true}).some(m=>m.to===sq)){ pzTry(pz.sel,sq); return; }
+  pz.sel=pc&&pc.color===c.turn()&&pz.sel!==sq?sq:null; pzRender(); }
+function pzTry(from,to){ const c=pz.c, exp=pz.sol[pz.i], promo=exp.slice(0,4)===from+to&&exp[4]?exp[4]:'q';
+  const mv=c.move({from,to,promotion:promo}); if(!mv) return; pz.sel=null; pz.hint=null;
+  const good=(mv.from+mv.to+(mv.promotion||''))===exp||(mv.from+mv.to)===exp||c.in_checkmate();
+  if(!good){ c.undo(); pz.miss=true; pz.bad=to; pzSay(pz.src==='mine'&&(from+to)===pz.own.pu?'That’s what you played in the game. Look for something stronger.':'Not that one. Look again.','err'); pzRender(); setTimeout(()=>{ if(pz){ pz.bad=null; pzRender(); } },650); return; }
+  pz.last=from+to; pz.i++;
+  if(pz.i>=pz.sol.length||c.in_checkmate()){ pzSolved(); return; }
+  pzSay('Right. Keep going.'); pzBusy=true; pzRender(); const mine=pz;
+  setTimeout(()=>{ if(pz!==mine) return; const u=pz.sol[pz.i], r=c.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]}); pzBusy=false; if(!r){ pzSolved(); return; } pz.last=u.slice(0,4); pz.i++; if(pz.i>=pz.sol.length) pzSolved(); else pzRender(); },480);
+}
+function pzSolved(){ pz.done=true; pzBusy=false; pzDay(); const t=today(), d=S.pz.days[t];
+  if(!pz.counted){ pz.counted=true; if(!pz.shown) d[0]++; if(!pz.miss) d[1]++; S.pz.seen.push(pz.key); if(S.pz.seen.length>300) S.pz.seen=S.pz.seen.slice(-300);
+    const ks=Object.keys(S.pz.days).sort(); if(ks.length>120) ks.slice(0,ks.length-120).forEach(k=>delete S.pz.days[k]);
+    if(d[0]>=PZ_GOAL){ const tl=tasksFor(t), md=S.days[t]||{}, pi=tl.findIndex((x,i)=>x[2]==='puzzles'&&!md[i]); if(pi>=0){ toggleTask(t,pi,tl.length,true); toast(PZ_GOAL+' puzzles done today'); } }
+    save(); }
+  pzRender();
+  pzSay(pz.src==='mine'?(pz.own.why?pz.own.why:'In the game you played '+pz.own.played+'.')+(pz.own.line?' Better was '+pz.own.line+'.':''):(pz.shown?'Play it through in your head, then try the next one.':pz.miss?'That’s the idea. Try the next one without help.':'Clean solve.'),pz.miss?'':'ok'); }
+function pzPlayOut(){ if(!pz||pz.done) return; pz.miss=true; pz.shown=true; pzBusy=true; pz.sel=null; const mine=pz, c=pz.c;
+  const step=()=>{ if(pz!==mine) return; if(pz.i>=pz.sol.length){ pzSolved(); return; } const u=pz.sol[pz.i], r=c.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]}); if(!r){ pzSolved(); return; } pz.last=u.slice(0,4); pz.i++; pzRender(); setTimeout(step,700); };
+  pzSay('Here’s the answer.'); step(); }
+$('pzBoard').addEventListener('click',pzSquare);
+$('pzHint').onclick=()=>{ if(!pz||pz.done) return; pz.miss=true; pz.hint=pz.sol[pz.i].slice(0,2); pz.sel=null; pzSay('Move the highlighted piece.'); pzRender(); };
+$('pzShow').onclick=pzPlayOut;
+$('pzNext').onclick=()=>pzLoad();
+function renderPuzzle(id){ const a=id||'mix'; if(pz&&a===pzAngle&&!pz.done){ pzRender(); return; } pzAngle=a; pzLoad(); }
+
+
 const GL={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
 function boardSVG(fen,played,best,flip,tint,acol){
   const rows=fen.split(' ')[0].split('/'); let sq='', pc='';
@@ -783,7 +890,7 @@ function boardSVG(fen,played,best,flip,tint,acol){
   for(let r=0;r<8;r++) for(let f=0;f<8;f++){ const x=(flip?7-f:f)*12.5, y=(flip?7-r:r)*12.5; sq+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="var(${(r+f)%2?'--sq-d':'--sq-l'})"/>`; }
   if(played){ for(const s of [played.slice(0,2),played.slice(2,4)]){ const [x,y]=xy(s); sq+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="${tint||'var(--err-tint)'}"/>`; } }
   rows.forEach((rw,r)=>{ let f=0; for(const ch of rw){ if(/\d/.test(ch)){ f+=+ch; continue; } const x=(flip?7-f:f)*12.5+6.25, y=(flip?7-r:r)*12.5+10.4, w=ch===ch.toUpperCase();
-    pc+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="11" style="font-family:var(--glyph)" fill="${w?'#FFFFFF':'#151314'}" stroke="${w?'#151314':'none'}" stroke-width="${w?.55:0}" paint-order="stroke">${GL[ch.toLowerCase()]}︎</text>`; f++; } });
+    pc+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="11" style="font-family:var(--glyph)" fill="${w?'#FFFFFF':'#151314'}" stroke="${w?'#151314':'#F4F1EB'}" stroke-opacity="${w?1:.45}" stroke-width="${w?.55:.4}" paint-order="stroke">${GL[ch.toLowerCase()]}︎</text>`; f++; } });
   let ar='';
   if(best&&best.length>=4){ const [x1,y1]=xy(best.slice(0,2)), [x2,y2]=xy(best.slice(2,4)); const ax=x1+6.25, ay=y1+6.25, bx=x2+6.25, by=y2+6.25, L=Math.hypot(bx-ax,by-ay)||1, ux=(bx-ax)/L, uy=(by-ay)/L;
     ar=`<line x1="${ax}" y1="${ay}" x2="${bx-ux*3.2}" y2="${by-uy*3.2}" stroke="${acol||'var(--q-B)'}" stroke-width="2.4" stroke-linecap="round" opacity=".9"/><path d="M${bx} ${by} L${bx-ux*5-uy*3.4} ${by-uy*5+ux*3.4} L${bx-ux*5+uy*3.4} ${by-uy*5-ux*3.4}Z" fill="${acol||'var(--q-B)'}" opacity=".9"/>`; }
@@ -1265,14 +1372,14 @@ async function buildReview(c,side,prog,link){
 }
 
 
-const TABS=['home','games','plan'], NAMES=['home','session','review','game','games','plan','routine','day','welcome'];
-const BACK={review:()=>reviewFrom,routine:()=>'home',session:()=>'home',game:()=>gdFrom};
+const TABS=['home','games','plan'], NAMES=['home','session','review','game','games','plan','routine','day','puzzle','welcome'];
+const BACK={review:()=>reviewFrom,routine:()=>'home',session:()=>'home',game:()=>gdFrom,puzzle:()=>pzFrom};
 let reviewFrom='games';
 document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>{ const k=b.closest('.screen').id.slice(2); location.hash=(BACK[k]?BACK[k]():b.dataset.back); });
 let cur=null, curName=null;
-function screenOf(h){ if(h.startsWith('day-')) return {name:'day',id:h.slice(4)}; const [v,id]=h.split('-'); return {name:NAMES.includes(v)?v:(v==='goal'||v==='focus'?'plan':'home'), id:id!==undefined?+id:null}; }
+function screenOf(h){ if(h.startsWith('day-')) return {name:'day',id:h.slice(4)}; if(h==='puzzle'||h.startsWith('puzzle-')) return {name:'puzzle',id:h.slice(7)}; const [v,id]=h.split('-'); return {name:NAMES.includes(v)?v:(v==='goal'||v==='focus'?'plan':'home'), id:id!==undefined?+id:null}; }
 function renderScreen(sc){
-  ({welcome:()=>{},day:()=>renderDay(sc.id),home:renderHome,games:renderGames,plan:()=>{ renderPlan(); if(xReady) renderAccount(); },routine:renderRoutine,session:()=>{ if(!sessPinned) sessI=sessFirst(); renderSession(); },game:()=>renderGame(sc.id),review:()=>{ if(!reviewing){ say(''); $('sidePick').hidden=true; btn.hidden=false; } }})[sc.name]();
+  ({welcome:()=>{},puzzle:()=>renderPuzzle(sc.id),day:()=>renderDay(sc.id),home:renderHome,games:renderGames,plan:()=>{ renderPlan(); if(xReady) renderAccount(); },routine:renderRoutine,session:()=>{ if(!sessPinned) sessI=sessFirst(); renderSession(); },game:()=>renderGame(sc.id),review:()=>{ if(!reviewing){ say(''); $('sidePick').hidden=true; btn.hidden=false; } }})[sc.name]();
 }
 function route(){
   const sc=S.user?screenOf(location.hash.slice(1)||'home'):{name:'welcome',id:null}, next=$('s-'+sc.name);
@@ -1280,6 +1387,7 @@ function route(){
   if(sc.name==='game'&&TABS.includes(curName)) gdFrom=curName;
   if(sc.name==='game'&&curName==='day'&&dayId) gdFrom='day-'+dayId;
   if(sc.name==='plan'&&curName!=='plan') viewPhase=S.phase;
+  if(sc.name==='puzzle'&&curName&&curName!=='puzzle') pzFrom=curName==='day'&&dayId?'day-'+dayId:['home','plan','session'].includes(curName)?curName:'home';
   if(sc.name!=='session') sessPinned=false;
   renderScreen(sc);
   document.body.classList.toggle('deep',sc.name!=='home');
