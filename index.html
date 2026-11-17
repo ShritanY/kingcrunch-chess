@@ -208,6 +208,7 @@ button:focus-visible,a:focus-visible,textarea:focus-visible{outline:1.5px solid 
 .steps2 button svg{width:16px;height:16px}
 .steps2 button:disabled{opacity:.35}
 .tag2 .bdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--q-B);margin-right:6px;vertical-align:1px}
+.mono.foot.fresh{color:var(--violet-ink,#6B4FD8)}
 .qpill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;min-height:26px;padding:0 10px 0 4px;border-radius:999px;font:400 .72rem var(--mono);color:var(--ink);background:var(--pill)}
 .qpill b{display:grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:999px;color:#fff;font:400 .7rem var(--mono)}
 .qual{display:grid;grid-template-columns:1fr auto auto;gap:0;border-radius:14px;overflow:hidden;background:var(--bg)}
@@ -794,7 +795,7 @@ function gameRow(g,idx){
     b.innerHTML=`<span class="date"><span>${DAYS[dayIdx(dt)].slice(0,3).toUpperCase()}</span><b>${String(dt.getDate()).padStart(2,'0')}</b></span><span class="t"><b></b><span class="mono"></span></span><span class="meta"><span class="mono ${g.res}"></span><span class="mono foot"></span></span>`;
     b.querySelector('.t b').textContent='vs '+(g.vs||'opponent');
     b.querySelector('.t .mono').textContent=g.opening||(MONTHS[dt.getMonth()]+' '+dt.getFullYear());
-    const mt=b.querySelectorAll('.meta .mono'); mt[0].textContent=g.res==='W'?'Win':g.res==='L'?'Loss':'Draw'; mt[1].textContent=g.tc||'';
+    const mt=b.querySelectorAll('.meta .mono'); mt[0].textContent=g.res==='W'?'Win':g.res==='L'?'Loss':'Draw'; mt[1].textContent=g.fresh?'New review':(g.tc||''); if(g.fresh) mt[1].classList.add('fresh');
     b.onclick=()=>{ location.hash='game-'+idx; };
     return b;
   }
@@ -952,6 +953,7 @@ async function rateGame(g,rb){
 }
 function renderGame(idx){
   const g=S.games[idx]; if(!g){ location.hash='games'; return; } gdIdx=idx;
+  if(g.fresh){ delete g.fresh; save(); }
   $('gdHead').textContent=(g.res==='W'?'Win':g.res==='L'?'Loss':'Draw')+' vs '+(g.vs||'opponent');
   const dt=D(g.d); $('gdSub').textContent=[DAYS[dayIdx(dt)]+' '+fmtD(dt),g.tc,g.opening].filter(Boolean).join(', ');
   $('gdAcc').textContent=g.acc?'Accuracy '+g.acc:'';
@@ -1087,9 +1089,19 @@ async function reviewGame(){
   try{ if(navigator.wakeLock) wake=await navigator.wakeLock.request('screen'); }catch(e){ wake=null; }
   say('Starting engine');
   try{ await engine(); }catch(e){ finish('The engine couldn’t start on this device.',true); return; }
+  const total=Math.ceil(moves.length/2);
+  const {entry,dup}=await buildReview(c,side,{step:i=>{ btn.style.setProperty('--p',((i+1)/moves.length*100).toFixed(1)+'%'); say('Move '+Math.min(total,Math.floor(i/2)+1)+' of '+total); },check:(j,n)=>say('Checking key moments '+Math.round((j+1)/n*100)+'%'),say:t=>{ say(t); btn.style.setProperty('--p','100%'); }});
+  $('pgnIn').value=''; finish('');
+  if(dup) toast('Already in your log, updated');
+  afterReview();
+}
+/* The analysis itself, with no screen attached: the paste box and the background reviewer both use it */
+async function buildReview(c,side,prog,link){
+  prog=prog||{};
+  const h=c.header(), moves=c.history({verbose:true});
   const ms=moves.length>120?300:500, g=new Chess(); if(h.SetUp==='1'&&h.FEN) g.load(h.FEN);
   const sg=side==='w'?1:-1, total=Math.ceil(moves.length/2);
-  const rows=await analyzeGame(g,moves.map(x=>x.san),side,ms,i=>{ btn.style.setProperty('--p',((i+1)/moves.length*100).toFixed(1)+'%'); say('Move '+Math.min(total,Math.floor(i/2)+1)+' of '+total); },(j,n)=>say('Checking key moments '+Math.round((j+1)/n*100)+'%'));
+  const rows=await analyzeGame(g,moves.map(x=>x.san),side,ms,prog.step,prog.check);
   const mine=rows.filter(r=>r.mine), theirs=rows.filter(r=>!r.mine);
   const acc=a=>a.length?Math.round(a.map(r=>Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*Math.max(0,r.drop))-3.1669))).reduce((x,y)=>x+y,0)/a.length):0;
   const blunders=mine.filter(r=>r.drop>=20), mistakes=mine.filter(r=>r.drop>=10&&r.drop<20), tag=r=>r.no+(r.turn==='w'?'.':'…')+r.san;
@@ -1104,7 +1116,7 @@ async function reviewGame(){
   const facts={you:side==='w'?'White':'Black',opponent:opp,result:{W:'win',L:'loss',D:'draw'}[res],howItEnded:h.Termination||'',timeControl:tcLabel(h.TimeControl),opening:openingName(h),movesPlayed:total,
     yourAccuracy:acc(mine),opponentAccuracy:acc(theirs),yourBlunders:blunders.length,yourMistakes:mistakes.length,bestEvalYouReached:fmtEval(Math.max(...rows.map(r=>r.afterU))),finalEvalForYou:fmtEval(rows.at(-1).afterU),
     keyMoments:moments.map(m=>({who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate}))};
-  say('Writing your review'); btn.style.setProperty('--p','100%');
+  if(prog.say) prog.say('Writing your review');
   let out=null;
   
   if(!out||typeof out.review!=='string'){
@@ -1114,7 +1126,7 @@ async function reviewGame(){
       review:`${facts.result[0].toUpperCase()+facts.result.slice(1)} against ${opp}. Accuracy ${facts.yourAccuracy}, ${blunders.length} blunder${blunders.length===1?'':'s'}.\n\n${lines.join('\n')||'No large swings in this one.'}\n\nLesson: steps one and two, every move.`};
   }
   const reason=REASONS.concat(['Won cleanly']).includes(out.reason)?out.reason:(res==='W'?'Won cleanly':'Missed tactic');
-  const entry={d:localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||'',
+  const entry={d:localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||link||'',
     acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu}))};
   entry.key=entry.link||[entry.d,entry.vs,entry.res,moves.length,moves.slice(0,8).map(x=>x.san).join('')].join('|');
   const dup=S.games.some(x=>(x.key||x.link)===entry.key);
@@ -1123,10 +1135,10 @@ async function reviewGame(){
   [...S.games].sort((a,b)=>a.d<b.d?1:-1).slice(40).forEach(x=>{ delete x.mv; delete x.ev; delete x.cl; delete x.bm; });
   const elo=+(side==='w'?h.WhiteElo:h.BlackElo), base=+(String(h.TimeControl||'').split('+')[0]);
   if(elo&&base>=600&&!String(h.TimeControl).includes('/')){ const old=S.ratings.find(o=>o.d===entry.d)||{}; S.ratings=S.ratings.filter(o=>o.d!==entry.d).concat({d:entry.d,rapid:elo,puzzle:old.puzzle||null,rush:old.rush||null}); }
-  save(); $('pgnIn').value=''; finish('');
+  if(prog.quiet) entry.fresh=1;
+  save();
   if(entry.d===today()){ const tl=tasksFor(entry.d), md=S.days[entry.d]||{}; tl.forEach((x,i)=>{ if((x[2]==='play'||x[2]==='review')&&!md[i]) toggleTask(entry.d,i,tl.length,true); }); }
-  if(dup) toast('Already in your log, updated');
-  afterReview();
+  return {entry,dup};
 }
 
 
@@ -1252,7 +1264,7 @@ async function pull(force){
     save(); setSync('Updated just now.');
   }catch(e){
     setSync(e&&e.code===404?'chess.com doesn’t know “'+S.user+'”. Check it in Plan.':'Couldn’t reach chess.com. You can still paste a game.');
-  }finally{ pulling=false; renderVisible(); }
+  }finally{ pulling=false; renderVisible(); bgReview(); }
 }
 function inboxRefresh(){ const logged=new Set(S.games.map(g=>g.link)); inbox=inbox.filter(x=>!logged.has(x.url)); ls.set('kc-inbox',JSON.stringify(inbox)); }
 function visibleInbox(){ const sk=S.skipped||{}; return inbox.filter(x=>!sk[x.url]); }
@@ -1267,7 +1279,8 @@ function renderInbox(){
     b.innerHTML=`<span class="date"><span>${DAYS[dayIdx(dt)].slice(0,3).toUpperCase()}</span><b>${String(dt.getDate()).padStart(2,'0')}</b></span><span class="t"><b></b><span class="mono"></span></span><span class="meta"><span class="mono ${it.res}"></span><span class="mono foot">Review</span></span>`;
     b.querySelector('.t b').textContent='vs '+it.vs; b.querySelector('.t .mono').textContent=it.tc;
     b.querySelector('.meta .mono').textContent=it.res==='W'?'Win':it.res==='L'?'Loss':'Draw';
-    b.onclick=()=>{ queue=[]; qTotal=0; reviewItem(it); };
+    if(it.url===bgUrl) b.querySelector('.meta .foot').textContent='Reviewing…';
+    b.onclick=()=>{ if(it.url===bgUrl){ bgWait={url:it.url,done:idx=>{ gdFrom='games'; location.hash='game-'+idx; }}; toast('Almost done. It opens when ready.'); return; } queue=[]; qTotal=0; reviewItem(it); };
     const x=document.createElement('button'); x.type='button'; x.className='inb-x'; x.setAttribute('aria-label','Skip this game');
     x.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
     x.onclick=()=>{ S.skipped=Object.assign({},S.skipped,{[it.url]:Date.now()}); save(); renderInbox(); toast('Skipped',()=>{ const k=Object.assign({},S.skipped); delete k[it.url]; S.skipped=k; save(); renderInbox(); }); };
@@ -1276,13 +1289,35 @@ function renderInbox(){
 }
 function reviewItem(it){ curItem=it; $('pgnIn').value=it.pgn; forcedSide=it.side; if(location.hash!=='#review') location.hash='review'; setTimeout(()=>start(),120); }
 function afterReview(){
-  const lg=S.games[S.games.length-1]; if(curItem&&lg&&!lg.link){ lg.link=curItem.url; save(); } curItem=null;
+  setTimeout(bgReview,1500);
   inboxRefresh();
   if(queue.length){ qDone++; toast('Reviewed '+qDone+' of '+qTotal); const n=queue.shift(); setTimeout(()=>reviewItem(n),600); return; }
   if(qTotal){ qTotal=0; qDone=0; location.hash='games'; toast('All caught up'); return; }
   gdFrom='games'; location.hash='game-'+(S.games.length-1);
 }
-$('revAll').onclick=()=>{ const items=[...visibleInbox()].sort((a,b)=>a.end-b.end); if(!items.length) return; qTotal=items.length; qDone=0; queue=items.slice(1); reviewItem(items[0]); };
+$('revAll').onclick=()=>{ if(bgBusy){ toast('Already reviewing these. They’ll show up in Games.'); return; } const items=[...visibleInbox()].sort((a,b)=>a.end-b.end); if(!items.length) return; qTotal=items.length; qDone=0; queue=items.slice(1); reviewItem(items[0]); };
+
+/* New chess.com games get reviewed on their own while the app is open, newest first */
+let bgBusy=false, bgUrl=null, bgWait=null;
+async function bgReview(){
+  if(bgBusy||!S.user||typeof Chess==='undefined') return; bgBusy=true;
+  try{
+    for(;;){
+      if(reviewing||document.hidden) break;
+      const it=[...visibleInbox()].sort((a,b)=>b.end-a.end)[0]; if(!it) break;
+      const c=new Chess();
+      if(!c.load_pgn(cleanPgn(it.pgn),{sloppy:true})||c.history().length<2){ S.skipped=Object.assign({},S.skipped,{[it.url]:Date.now()}); save(); continue; }
+      try{ await engine(); }catch(e){ break; }
+      bgUrl=it.url; renderInbox();
+      let r=null; try{ r=await buildReview(c,it.side,{quiet:true},it.url); }catch(e){ r=null; }
+      bgUrl=null; if(!r) break;
+      inboxRefresh(); renderVisible();
+      const idx=S.games.indexOf(r.entry);
+      if(bgWait&&bgWait.url===it.url){ const w=bgWait; bgWait=null; w.done(idx); }
+      else toast('Reviewed your '+(r.entry.res==='W'?'win':r.entry.res==='L'?'loss':'draw')+' vs '+r.entry.vs);
+    }
+  }finally{ bgBusy=false; bgUrl=null; renderInbox(); }
+}
 
 /* account + onboarding */
 function renderAccount(){ $('acUser').textContent=S.display||S.user||''; document.querySelectorAll('#pullSeg button').forEach(b=>b.setAttribute('aria-pressed',(S.pull||'rapid')===b.dataset.p)); }
@@ -1303,7 +1338,7 @@ $('wGo').onclick=async()=>{
   $('wGo').disabled=false; msg.textContent=''; $('wBk').value='';
   location.hash='home'; route(); ls.set('kc-pulled','0'); pull(true);
 };
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pull(false); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ pull(false); bgReview(); } });
 
 var xReady=true;
 dataReady();
