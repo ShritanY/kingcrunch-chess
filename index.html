@@ -551,7 +551,8 @@ let ref=null, writing=false, pending=false, timer=null, dirty=false;
 const LSK='kc-coach-state';
 function load(raw){ if(raw&&typeof raw==='object') S=Object.assign({},S,JSON.parse(JSON.stringify(raw))); if(!S.days||typeof S.days!=='object') S.days={}; if(!Array.isArray(S.games)) S.games=[]; if(!Array.isArray(S.ratings)) S.ratings=[]; if(!S.topics||typeof S.topics!=='object') S.topics={}; if(!S.gates||typeof S.gates!=='object') S.gates={}; if(!Array.isArray(S.focus)||!S.focus.length) S.focus=['tac']; }
 { const l=ls.get(LSK); if(l){ try{ load(JSON.parse(l)); }catch(e){} } }
-function save(){ S.updatedAt=Date.now(); ls.set(LSK,JSON.stringify(S)); if(!ref) return; dirty=true; clearTimeout(timer); timer=setTimeout(flush,600); }
+let saveWarned=false;
+function save(){ S.updatedAt=Date.now(); let ok=true; try{ localStorage.setItem(LSK,JSON.stringify(S)); }catch(e){ ok=false; } if(!ok&&!saveWarned){ saveWarned=true; setTimeout(()=>toast('This phone’s storage is full or blocked. Changes may not be saved.'),50); } if(!ref) return; dirty=true; clearTimeout(timer); timer=setTimeout(flush,600); }
 async function flush(){ timer=null; if(writing){pending=true;return;} writing=true; dirty=false;
   try{ await ref.set(JSON.parse(JSON.stringify(S))); }catch(e){ dirty=true; toast('Saved on this phone, sync paused'); }
   writing=false; if(pending){pending=false;flush();} }
@@ -564,6 +565,7 @@ function applyTheme(){ const t=ls.get('kc-theme')||'light'; if(t==='system') doc
   document.querySelectorAll('#themeSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===t)); }
 document.querySelectorAll('#themeSeg button').forEach(b=>b.onclick=()=>{ ls.set('kc-theme',b.dataset.t); applyTheme(); });
 applyTheme();
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
 
 
 function tasksFor(ds){ const m=S.days[ds]; if(m&&Array.isArray(m.list)&&m.list.length) return m.list; return SCHED[S.week][dayIdx(D(ds))]; }
@@ -783,8 +785,8 @@ function boardSVG(fen,played,best,flip,tint,acol){
 }
 
 
-let range=+(ls.get('kc-range')||0);
-document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{ range=+b.dataset.r; ls.set('kc-range',String(range)); renderGames(); });
+let range=+(ls.get('kc-range')||0), gShow=40;
+document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{ range=+b.dataset.r; gShow=40; ls.set('kc-range',String(range)); renderGames(); });
 function inRange(d){ return !range || (D(today())-D(d))/864e5 < range; }
 function renderGames(){ if(xReady){ renderInbox(); pull(false); }
   document.querySelectorAll('#range button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.r===range));
@@ -802,7 +804,8 @@ function renderGames(){ if(xReady){ renderInbox(); pull(false); }
   tl.hidden=!top; if(top) tl.textContent='Most losses come from: '+top[0].toLowerCase()+' ('+top[1]+' of '+losses.length+')';
   const gl=$('gameList'); gl.innerHTML='';
   if(!gs.length){ gl.innerHTML=`<p class="empty mono">${S.games.length?'No games in this range':'Review your first game to start the log'}</p>`; return; }
-  gs.slice(0,40).forEach(({g,idx})=>gl.append(gameRow(g,idx)));
+  gs.slice(0,gShow).forEach(({g,idx})=>gl.append(gameRow(g,idx)));
+  if(gs.length>gShow){ const mb=document.createElement('button'); mb.type='button'; mb.className='quiet'; mb.textContent='Show older games ('+(gs.length-gShow)+')'; mb.onclick=()=>{ gShow+=40; renderGames(); }; gl.append(mb); }
 }
 function gameRow(g,idx){
   {
@@ -957,14 +960,12 @@ async function rateGame(g,rb){
   let wake=null; try{ if(navigator.wakeLock) wake=await navigator.wakeLock.request('screen'); }catch(e){}
   try{ await engine(); }catch(e){ rb.disabled=false; rb.textContent=g.cl?'Re-check this game':'Rate every move'; pb.hidden=true; toast('The engine couldn’t start on this device'); return; }
   try{
-    const ms=rp.sans.length>120?300:450;
-    const rows=await analyzeGame(new Chess(),rp.sans,g.side||'w',ms,i=>{ bar.style.width=((i+1)/rp.sans.length*100).toFixed(0)+'%'; rb.textContent='Rating move '+Math.ceil((i+1)/2)+' of '+Math.ceil(rp.sans.length/2); },(j,n)=>{ rb.textContent='Checking key moments '+Math.round((j+1)/n*100)+'%'; });
-    g.cl=rows.map(r=>r.cls).join(''); g.bm=rows.map(r=>r.bu||'-').join(' ');
-    g.ev=[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(',');
-    delete g._rp; save(); toast('Every move rated, best moves added');
-  }catch(e){ toast('Rating stopped. Try again.'); }
+    const c=new Chess(); rp.sans.forEach(m=>c.move(m));
+    await buildReview(c,g.side||'w',{keep:g,step:i=>{ bar.style.width=((i+1)/rp.sans.length*100).toFixed(0)+'%'; rb.textContent='Rating move '+Math.ceil((i+1)/2)+' of '+Math.ceil(rp.sans.length/2); },check:(j,n)=>{ rb.textContent='Checking key moments '+Math.round((j+1)/n*100)+'%'; }});
+    delete g._rp; toast('Review updated');
+  }catch(e){ rb.disabled=false; rb.textContent=g.cl?'Re-check this game':'Rate every move'; pb.hidden=true; toast('Rating stopped. Try again.'); }
   if(wake) wake.release().catch(()=>{});
-  if(location.hash==='#game-'+S.games.indexOf(g)) renderReplay(g);
+  const gi=S.games.indexOf(g); if(location.hash==='#game-'+gi) renderGame(gi);
 }
 function renderGame(idx){
   const g=S.games[idx]; if(!g){ location.hash='games'; return; } gdIdx=idx;
@@ -980,6 +981,7 @@ function renderGame(idx){
     const txt=document.createElement('div');
     const mv=document.createElement('div'); mv.className='mv'; mv.textContent=m.move+(m.who==='opponent'?', their slip':m.missedMate?', mate missed':'');
     const ev=document.createElement('div'); ev.className='ev'; ev.textContent=m.evalBefore+' to '+m.evalAfter; txt.append(mv,ev);
+    if(m.why){ const wy=document.createElement('div'); wy.className='ln'; wy.textContent=m.why.replace(/^\S+\s/,'').replace(/^./,ch=>ch.toUpperCase()); txt.append(wy); }
     if(m.who==='you'&&(m.line||m.best)){ const ln=document.createElement('div'); ln.className='ln'; ln.append('Better was '); const em=document.createElement('em'); em.textContent=m.line||m.best; ln.append(em); txt.append(ln); }
     d.append(txt); body.append(d);
   });
@@ -990,7 +992,8 @@ $('gdDone').onclick=()=>{ location.hash=gdFrom; };
 $('gdDel').onclick=()=>{ const idx=gdIdx; if(idx===null) return; const removed=S.games.splice(idx,1)[0]; save(); location.hash='games'; toast('Game removed',()=>{ S.games.splice(idx,0,removed); save(); renderGames(); }); };
 
 
-let pool=null, engReady=null, engKind='', waitQ=[];
+let pool=null, engReady=null, engKind='', waitQ=[], poolCap=3;
+function killPool(){ const old=pool||[], q=waitQ; pool=null; engReady=null; waitQ=[]; old.forEach(p=>{ try{ p.w.terminate(); }catch(e){} if(p.rej) p.rej(new Error('engine stopped')); }); q.forEach(r=>r(null)); }
 function bootEngine(file,limit){ return new Promise((res,rej)=>{
   let w; try{ w=new Worker(file); }catch(e){ rej(e); return; }
   let n=0; const stop=err=>{ clearInterval(iv); try{ w.terminate(); }catch(_){} rej(err); };
@@ -1002,7 +1005,7 @@ function bootEngine(file,limit){ return new Promise((res,rej)=>{
 /* Several engine copies search different positions at the same time, one per spare core */
 function engine(){
   if(engReady) return engReady;
-  const cores=navigator.hardwareConcurrency||4, want=Math.max(1,Math.min(4,cores-1));
+  const cores=navigator.hardwareConcurrency||4, want=Math.max(1,Math.min(poolCap,cores-1));
   engReady=(typeof WebAssembly==='object'?bootEngine('sf18.js',30).then(w=>{ engKind='sf18'; return w; }):Promise.reject(new Error('no wasm')))
     .catch(()=>bootEngine('stockfish.js',20).then(w=>{ engKind='sf10'; return w; }))
     .then(async first=>{
@@ -1021,13 +1024,17 @@ function takeW(){ const p=pool.find(x=>!x.busy); if(p){ p.busy=true; return Prom
 function giveW(p){ const r=waitQ.shift(); if(r) r(p); else p.busy=false; }
 const goCmd=deep=>engKind==='sf18'?(deep?'go depth 16 movetime 3000':'go depth 14 movetime 2500'):(deep?'go movetime 900':'go movetime 350');
 const UCI=/^[a-h][1-8][a-h][1-8][qrbn]?$/;
-async function evalFen(fen,deep){ const p=await takeW();
-  try{ return await new Promise(res=>{ const L={};
+async function evalFen(fen,deep){ const p=await takeW(); if(!p) throw new Error('engine stopped');
+  let tm=null;
+  try{ return await new Promise((res,rej)=>{ const L={}; p.rej=rej;
+    /* a phone can kill an engine copy without telling us: give up after 20s of a visible screen */
+    const arm=()=>{ tm=setTimeout(()=>{ if(document.hidden) arm(); else rej(new Error('engine timeout')); },20000); }; arm();
     p.cb=l=>{ if(l.startsWith('info')&&l.includes(' score ')&&l.includes(' pv ')){ const k=(l.match(/ multipv (\d+)/)||[0,'1'])[1]; L[k]=l; }
       else if(l.startsWith('bestmove')){ p.cb=null; const parse=t=>{ if(!t) return null; let cp=0,mate=null; const m=t.match(/score (cp|mate) (-?\d+)/); if(m){ if(m[1]==='cp') cp=+m[2]; else mate=+m[2]; } return {cp,mate,pv:(t.split(' pv ')[1]||'').split(/\s+/).filter(x=>UCI.test(x))}; };
         const a=parse(L['1'])||{cp:0,mate:null,pv:[]}, b=parse(L['2']); res({cp:a.cp,mate:a.mate,best:l.split(' ')[1],pv:a.pv,s2:b?{cp:b.cp,mate:b.mate}:null}); } };
     p.w.postMessage('position fen '+fen); p.w.postMessage(goCmd(deep)); }); }
-  finally{ giveW(p); } }
+  catch(e){ if(pool&&pool.includes(p)){ poolCap=1; p.rej=null; killPool(); } throw e; }
+  finally{ clearTimeout(tm); p.rej=null; p.cb=null; if(pool&&pool.includes(p)) giveW(p); } }
 const whiteVal=(r,turn)=>{ const v=r.mate!==null?(r.mate>0?10000-r.mate:-10000-r.mate):r.cp; return turn==='w'?v:-v; };
 const winPct=cp=>50+50*(2/(1+Math.exp(-0.00368208*Math.max(-2000,Math.min(2000,cp))))-1);
 const fmtEval=v=>Math.abs(v)>=9000?(v>0?'mate for you':'mate against you'):(v>=0?'+':'\u2212')+Math.abs(v/100).toFixed(1);
@@ -1036,7 +1043,7 @@ function numbered(fen,sans){ let no=+fen.split(' ')[5], w=fen.split(' ')[1]==='w
 function cleanPgn(t){ let s=t.replace(/\{[^}]*\}/g,' ').replace(/;[^\n]*/g,' ').replace(/\$\d+/g,' '); let p; do{ p=s; s=s.replace(/\([^()]*\)/g,' '); }while(s!==p); return s.replace(/[ \t]+/g,' '); }
 function tcLabel(tc){ if(!tc) return ''; if(tc.includes('/')) return 'Daily'; const [b,inc]=tc.split('+'); const m=Math.round(+b/60); return inc&&+inc?`${m}|${inc}`:`${m} min`; }
 function openingName(h){ if(h.ECOUrl){ const out=[]; for(const w of h.ECOUrl.split('/').pop().split('-')){ if(/\d/.test(w)) break; out.push(w); } if(out.length) return out.slice(0,3).join(' '); } return h.Opening||''; }
-function localDate(h){ if(h.UTCDate&&h.UTCTime){ const d=new Date(h.UTCDate.replace(/\./g,'-')+'T'+h.UTCTime+'Z'); if(!isNaN(d)) return iso(d); } return (h.Date||today()).replace(/\./g,'-').replace(/\?/g,'0'); }
+function localDate(h){ if(h.UTCDate&&h.UTCTime){ const d=new Date(h.UTCDate.replace(/\./g,'-')+'T'+h.UTCTime+'Z'); if(!isNaN(d)) return iso(d); } const v=(h.Date||'').replace(/\./g,'-'); return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(D(v))?v:today(); }
 
 
 let forcedSide=null, wake=null, reviewing=false, wentAway=false;
@@ -1048,8 +1055,104 @@ document.querySelectorAll('#sidePick button').forEach(b=>b.onclick=()=>{ forcedS
 btn.onclick=()=>{ forcedSide=null; start(); };
 $('pgnIn').addEventListener('paste',()=>{ setTimeout(()=>{ if(!reviewing && /\d\.\s*\S/.test($('pgnIn').value)){ forcedSide=null; start(); } },60); });
 $('pgnIn').addEventListener('input',()=>{ if(msg.classList.contains('err')) say(''); });
-function start(){ if(reviewing) return; reviewGame().catch(()=>finish('The review stopped. Try once more.',true)); }
+function start(again){ if(reviewing) return; reviewGame().catch(()=>{ finish('',false); if(!again){ say('Restarting the engine'); setTimeout(()=>start(true),300); } else say('The review stopped. Try once more.',true); }); }
 function finish(t,isErr){ reviewing=false; morph(false); if(wake){ wake.release().catch(()=>{}); wake=null; } say(t||'',isErr); }
+
+/* ---- why a move was a mistake, worked out from the position (no engine time) ---- */
+const PN={p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'}, KV={p:1,n:3,b:3,r:5,q:9,k:100};
+function flipTurn(fen){ const f=fen.split(' '); f[1]=f[1]==='w'?'b':'w'; f[3]='-'; return f.join(' '); }
+function uciMove(c,u){ return u&&u.length>=4?c.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]}):null; }
+/* material the side to move wins by capturing on sq, cheapest attacker first */
+function seeGain(c,sq,depth){ if((depth||0)>8) return 0;
+  const caps=c.moves({verbose:true}).filter(m=>m.to===sq&&m.captured); if(!caps.length) return 0;
+  caps.sort((a,b)=>KV[a.piece]-KV[b.piece]); const m=caps[0];
+  if(!c.move({from:m.from,to:m.to,promotion:m.promotion})) return 0;
+  const g=QV[m.captured]-seeGain(c,sq,(depth||0)+1); c.undo(); return Math.max(0,g); }
+/* net material from playing one capture, after the recaptures */
+function captureGain(fen,u){ try{ const c=new Chess(fen), mv=uciMove(c,u); if(!mv||!mv.captured) return null;
+  return {gain:QV[mv.captured]-seeGain(c,mv.to),piece:mv.captured,sq:mv.to,san:mv.san}; }catch(e){ return null; } }
+/* what the piece now on sq attacks that matters: the king, bigger pieces, loose pieces */
+function targetsFrom(fenAfter,sq){ try{ const c=new Chess(); if(!c.load(flipTurn(fenAfter))) return [];
+  const seen={}, out=[];
+  c.moves({verbose:true}).filter(m=>m.from===sq&&m.captured).forEach(m=>{ if(seen[m.to]) return; seen[m.to]=1;
+    if(m.captured==='k'){ out.push({p:'k',sq:m.to}); return; }
+    let net=QV[m.captured]; const r=c.move({from:m.from,to:m.to,promotion:m.promotion}); if(r){ net-=seeGain(c,m.to); c.undo(); }
+    if(QV[m.captured]>QV[m.piece]||net>=2) out.push({p:m.captured,sq:m.to}); });
+  return out; }catch(e){ return []; } }
+function nameTargets(t,mine){ const own=mine?'your ':'the '; const k=t.find(x=>x.p==='k'), rest=t.filter(x=>x.p!=='k').sort((a,b)=>QV[b.p]-QV[a.p]);
+  if(k) return (mine?'your king':'the king')+' and '+own+PN[rest[0].p];
+  return own+PN[rest[0].p]+' and '+(rest[1].p===rest[0].p?(mine?'your other ':'the other '):own)+PN[rest[1].p]; }
+const missedMate=r=>!!(r.mateAvail&&r.mateAvail<=6&&!r.keptMate&&!r.isBest);
+function explainMove(r){
+  const tag=r.no+(r.turn==='w'?'.':'…')+r.san, to=r.pu.slice(2,4);
+  const replySan=r.reply?(sanLine(r.fenAfter,[r.reply],1)[0]||''):'', replyTxt=replySan?numbered(r.fenAfter,[replySan]):'';
+  const bestTxt=r.best?numbered(r.fenBefore,[r.best]):'';
+  if(missedMate(r)) return {k:'missedMate',why:`${tag} missed mate in ${r.mateAvail}.`,fix:r.pv&&r.pv.length?'The mate was '+numbered(r.fenBefore,r.pv.slice(0,Math.min(r.pv.length,2*r.mateAvail-1)))+'.':''};
+  if(r.oppMate>0&&!(r.preMate<0)) return {k:'allowedMate',why:`${tag} allows a forced mate${replyTxt?', starting with '+replyTxt:''}.`,fix:bestTxt?'Better was '+bestTxt+'.':''};
+  const rc=r.reply?captureGain(r.fenAfter,r.reply):null, pc=captureGain(r.fenBefore,r.uci||r.pu), took=pc?QV[pc.piece]:0;
+  if(rc&&rc.gain-took>=2&&rc.piece!=='p'){
+    if(rc.sq===to) return {k:'hungMoved',why:`${tag} put your ${PN[rc.piece]} where ${replyTxt} wins it.`,fix:bestTxt?'Better was '+bestTxt+'.':''};
+    const was=captureGain(flipTurn(r.fenBefore),r.reply);
+    if(was&&was.gain>=2) return {k:'hungLeft',why:`${tag} left your ${PN[rc.piece]} on ${rc.sq} hanging, and ${replyTxt} wins it.`,fix:bestTxt?'Better was '+bestTxt+'.':''};
+    return {k:'hungUndefended',why:`${tag} let ${replyTxt} win your ${PN[rc.piece]} on ${rc.sq}.`,fix:bestTxt?'Better was '+bestTxt+'.':''};
+  }
+  const bc=r.bu?captureGain(r.fenBefore,r.bu):null;
+  if(bc&&bc.gain>=2&&bc.gain-(pc?Math.max(0,pc.gain):0)>=2) return {k:'missedCapture',why:`${tag} missed ${bestTxt}, which wins ${bc.gain>=QV[bc.piece]?'a '+PN[bc.piece]+' for free':'material on '+bc.sq}.`,fix:''};
+  if(r.bu){ try{ const c=new Chess(r.fenBefore), mv=uciMove(c,r.bu); if(mv){ const t=targetsFrom(c.fen(),mv.to);
+    if(t.length>=2) return {k:'missedFork',why:`${tag} missed ${bestTxt}, hitting ${nameTargets(t,false)} at once.`,fix:''}; } }catch(e){} }
+  if(r.reply){ try{ const c=new Chess(r.fenAfter), mv=uciMove(c,r.reply); if(mv){ const t=targetsFrom(c.fen(),mv.to);
+    if(t.length>=2) return {k:'allowedFork',why:`${tag} allows ${replyTxt}, hitting ${nameTargets(t,true)} at once.`,fix:bestTxt?'Better was '+bestTxt+'.':''}; } }catch(e){} }
+  if(rc&&rc.gain-took>=1) return {k:'lostPawn',why:`${tag} loses ${rc.piece==='p'?'a pawn':'material'} to ${replyTxt}.`,fix:bestTxt?'Better was '+bestTxt+'.':''};
+  const big=Math.abs(r.beforeU)>=9000||Math.abs(r.afterU)>=9000;
+  return {k:'other',why:big?`${tag} went from ${fmtEval(r.beforeU)} to ${fmtEval(r.afterU)}.`:`${tag} cost you about ${((r.beforeU-r.afterU)/100).toFixed(1)} pawns (${fmtEval(r.beforeU)} to ${fmtEval(r.afterU)}).`,fix:r.pv&&r.pv.length?'Better was '+numbered(r.fenBefore,r.pv.slice(0,3))+'.':(bestTxt?'Better was '+bestTxt+'.':'')};
+}
+const LESSON={
+  missedMate:'When their king is exposed, look at every check before anything else.',
+  allowedMate:'Before a quiet move, look at every check your opponent has.',
+  hungMoved:'Before a piece lands, ask what can capture it on that square.',
+  hungLeft:'Before every move, look for your pieces that are attacked and not defended.',
+  hungUndefended:'After choosing a move, check what it stops defending or opens up.',
+  missedCapture:'Look at every capture on the board before you choose a move.',
+  missedFork:'Look for one move that attacks two things at once.',
+  allowedFork:'After choosing a move, ask what their knight or queen can attack twice.',
+  lostPawn:'Count attackers and defenders before leaving a pawn behind.',
+  other:'Run the blunder check on every move: their checks, captures and threats.'
+};
+function heavyCount(fen){ return (fen.split(' ')[0].match(/[nbrqNBRQ]/g)||[]).length; }
+function writeReview(o){ /* o: rows, mine, side, res, opp, opening, term, acc, oppAcc */
+  const bad=o.mine.filter(r=>r.drop>=10).map(r=>Object.assign({r},explainMove(r)));
+  o.mine.filter(r=>missedMate(r)&&r.drop<10).forEach(r=>bad.push(Object.assign({r},explainMove(r))));
+  const wt=b=>(b.k==='missedMate'?40:0)+b.r.drop, top=[...bad].sort((a,b)=>wt(b)-wt(a));
+  const score={}; bad.forEach(b=>{ score[b.k]=(score[b.k]||0)+wt(b); });
+  const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]), spec=ranked.filter(e=>e[0]!=='other'&&e[0]!=='lostPawn');
+  const kind=(spec[0]||ranked[0]||['other'])[0], hungSum=ranked.filter(e=>/^hung/.test(e[0])).reduce((a,e)=>a+e[1],0), tacSum=spec.filter(e=>!/^hung/.test(e[0])).reduce((a,e)=>a+e[1],0);
+  const peak=o.rows.reduce((a,r)=>r.afterU>a.afterU?r:a,o.rows[0]), low=o.rows.reduce((a,r)=>r.afterU<a.afterU?r:a,o.rows[0]), fin=o.rows.at(-1).afterU;
+  const onTime=/time/i.test(o.term||''), blunders=o.mine.filter(r=>r.drop>=20).length;
+  const ahead=v=>Math.abs(v)>=9000?'had a forced mate':'were ahead by '+(v/100).toFixed(1), behind=v=>Math.abs(v)>=9000?'were getting mated':'were down '+Math.abs(v/100).toFixed(1);
+  let first=({W:'Win',L:'Loss',D:'Draw'})[o.res]+' against '+o.opp+' as '+(o.side==='w'?'White':'Black')+(o.opening?' in the '+o.opening:'')+'.';
+  if(o.res!=='W'&&onTime&&fin>=100) first+=' You '+ahead(fin)+' when the clock ran out.';
+  else if(o.res!=='W'&&peak.afterU>=300) first+=' You '+ahead(peak.afterU)+' at move '+peak.no+', then it slipped.';
+  else if(o.res==='W'&&low.afterU<=-300) first+=' You '+behind(low.afterU)+' at move '+low.no+' and turned it around.';
+  else if(!bad.length) first+=' No real mistakes from you: accuracy '+o.acc+'.';
+  else first+=' Accuracy '+o.acc+'.';
+  const lines=top.slice(0,4).sort((a,b)=>a.r.i-b.r.i).map(b=>b.why+(b.fix?' '+b.fix:''));
+  if(lines.length<3){ const slip=o.rows.filter(r=>!r.mine&&r.drop>=20).sort((a,b)=>b.drop-a.drop)[0];
+    if(slip){ const nx=o.rows[slip.i+1]; lines.push(slip.no+(slip.turn==='w'?'.':'…')+slip.san+' was a big slip by your opponent'+(nx&&nx.mine?(nx.drop<8?', and you punished it.':', but you let it go.'):'.')); } }
+  let reason;
+  if(o.res==='W') reason='Won cleanly';
+  else if(onTime&&fin>=100) reason='Time trouble';
+  else if(!bad.length) reason='Opponent played well';
+  else if(hungSum&&hungSum>=tacSum) reason='Hung a piece';
+  else if(tacSum) reason='Missed tactic';
+  else if(!blunders&&o.oppAcc>=85) reason='Opponent played well';
+  else if(top[0].r.no<=10) reason='Opening trouble';
+  else if(heavyCount(top[0].r.fenBefore)<=6) reason='Endgame error';
+  else reason=blunders?'Missed tactic':'No plan';
+  let lesson=bad.length?LESSON[kind]:(o.res==='W'?'This is the standard to aim for.':'Against strong play, keep pieces protected and trade when behind.');
+  if(reason==='Time trouble') lesson='When you are ahead, play safe moves quickly and keep time for the ending.';
+  const why={}; bad.forEach(b=>{ why[b.r.i]=b.why; });
+  return {reason,lesson,why,review:first+'\n\n'+(lines.join('\n')||'No large swings in this one.')+'\n\nLesson: '+lesson};
+}
 
 async function analyzeGame(g,sans,side,ms,onStep,onCheck){
   const sg=side==='w'?1:-1, rows=[], start=g.fen(), steps=[];
@@ -1065,7 +1168,7 @@ async function analyzeGame(g,sans,side,ms,onStep,onCheck){
     const s=turn==='w'?1:-1, wBefore=winPct(s*prevW), wAfter=winPct(s*afterW), drop=wBefore-wAfter, mateAvail=prev.mate!==null&&prev.mate>0?prev.mate:null;
     const uci=mv.from+mv.to+(mv.promotion||''), isBest=uci===prev.best, gap2=prev.s2?winPct(scoreCp(prev))-winPct(scoreCp(prev.s2)):null;
     let sac=false; try{ sac=isSac(fenBefore,mv); }catch(e){}
-    rows.push({i,uci,fenAfter:st.fenAfter,endW:st.end,no:+fenBefore.split(' ')[5],turn,san:mv.san,pu:mv.from+mv.to,bu:prev.best,best:sanLine(fenBefore,[prev.best],1)[0]||'',pv:sanLine(fenBefore,prev.pv,7),fenBefore,beforeU:sg*prevW,afterU:sg*afterW,drop,mine:turn===side,mateAvail,keptMate:Math.abs(afterW)>=9000&&Math.sign(afterW)===s,legal,isBest,gap2,sac,wBefore,wAfter,recap:!!mv.captured&&mv.to===prevTo,bigCap:!!mv.captured&&QV[mv.captured]>QV[mv.piece]});
+    rows.push({i,uci,reply:st.end===null&&after?after.best:'',oppMate:st.end===null&&after?after.mate:null,preMate:prev.mate,fenAfter:st.fenAfter,endW:st.end,no:+fenBefore.split(' ')[5],turn,san:mv.san,pu:mv.from+mv.to,bu:prev.best,best:sanLine(fenBefore,[prev.best],1)[0]||'',pv:sanLine(fenBefore,prev.pv,7),fenBefore,beforeU:sg*prevW,afterU:sg*afterW,drop,mine:turn===side,mateAvail,keptMate:Math.abs(afterW)>=9000&&Math.sign(afterW)===s,legal,isBest,gap2,sac,wBefore,wAfter,recap:!!mv.captured&&mv.to===prevTo,bigCap:!!mv.captured&&QV[mv.captured]>QV[mv.piece]});
     prevTo=mv.to; });
   rows.forEach((r,k)=>{ r.cls=moveClass(Object.assign({},r,{prevDrop:k?rows[k-1].drop:0})); });
   await recheck(rows,side,0,onCheck);
@@ -1075,7 +1178,7 @@ async function analyzeGame(g,sans,side,ms,onStep,onCheck){
 function setBefore(r,pre,preW,sg){ const s=r.turn==='w'?1:-1;
   r.beforeU=sg*preW; r.wBefore=winPct(s*preW); r.drop=r.wBefore-r.wAfter; r.bu=pre.best;
   r.best=sanLine(r.fenBefore,[pre.best],1)[0]||''; r.pv=sanLine(r.fenBefore,pre.pv,7); r.isBest=r.uci===pre.best;
-  r.gap2=pre.s2?winPct(scoreCp(pre))-winPct(scoreCp(pre.s2)):null; r.mateAvail=pre.mate!==null&&pre.mate>0?pre.mate:null; }
+  r.gap2=pre.s2?winPct(scoreCp(pre))-winPct(scoreCp(pre.s2)):null; r.mateAvail=pre.mate!==null&&pre.mate>0?pre.mate:null; r.preMate=pre.mate; }
 async function recheck(rows,side,ms,onStep){
   const sg=side==='w'?1:-1;
   const flag=rows.map((r,k)=>'bgmxu'.includes(r.cls)?k:-1).filter(k=>k>=0); if(!flag.length) return;
@@ -1085,7 +1188,7 @@ async function recheck(rows,side,ms,onStep){
     const pre=got[r.fenBefore], preW=whiteVal(pre,r.turn); setBefore(r,pre,preW,sg);
     if(k>0){ const q=rows[k-1]; q.afterU=sg*preW; q.wAfter=winPct(-s*preW); q.drop=q.wBefore-q.wAfter; q.keptMate=Math.abs(preW)>=9000&&Math.sign(preW)===-s; }
     let postW=r.endW;
-    if(postW==null){ const post=got[r.fenAfter]; postW=whiteVal(post,r.turn==='w'?'b':'w'); if(rows[k+1]) setBefore(rows[k+1],post,postW,sg); }
+    if(postW==null){ const post=got[r.fenAfter]; postW=whiteVal(post,r.turn==='w'?'b':'w'); r.reply=post.best; r.oppMate=post.mate; if(rows[k+1]) setBefore(rows[k+1],post,postW,sg); }
     r.afterU=sg*postW; r.wAfter=winPct(s*postW); r.drop=r.wBefore-r.wAfter; r.keptMate=Math.abs(postW)>=9000&&Math.sign(postW)===s;
   }
   rows.forEach((r,k)=>{ r.cls=moveClass(Object.assign({},r,{prevDrop:k?rows[k-1].drop:0})); });
@@ -1120,29 +1223,28 @@ async function buildReview(c,side,prog,link){
   const mine=rows.filter(r=>r.mine), theirs=rows.filter(r=>!r.mine);
   const acc=a=>a.length?Math.round(a.map(r=>Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*Math.max(0,r.drop))-3.1669))).reduce((x,y)=>x+y,0)/a.length):0;
   const blunders=mine.filter(r=>r.drop>=20), mistakes=mine.filter(r=>r.drop>=10&&r.drop<20), tag=r=>r.no+(r.turn==='w'?'.':'…')+r.san;
-  const mk=(r,who)=>({who,move:tag(r),evalBefore:fmtEval(r.beforeU),evalAfter:fmtEval(r.afterU),best:r.best,line:who==='you'?numbered(r.fenBefore,r.pv):'',missedMate:who==='you'&&r.mateAvail&&!r.keptMate?r.mateAvail:null,fen:r.fenBefore,pu:r.pu,bu:r.bu,_r:r});
+  const mk=(r,who)=>({who,move:tag(r),evalBefore:fmtEval(r.beforeU),evalAfter:fmtEval(r.afterU),best:r.best,line:who==='you'?numbered(r.fenBefore,r.pv):'',missedMate:who==='you'&&missedMate(r)?r.mateAvail:null,fen:r.fenBefore,pu:r.pu,bu:r.bu,_r:r});
   const moments=[];
   mine.filter(r=>r.drop>=10).sort((a,b)=>b.drop-a.drop).slice(0,4).forEach(r=>moments.push(mk(r,'you')));
-  mine.filter(r=>r.mateAvail&&!r.keptMate&&r.drop<10).slice(0,2).forEach(r=>moments.push(mk(r,'you')));
+  mine.filter(r=>missedMate(r)&&r.drop<10).slice(0,2).forEach(r=>moments.push(mk(r,'you')));
   theirs.filter(r=>r.drop>=20).sort((a,b)=>b.drop-a.drop).slice(0,2).forEach(r=>moments.push(mk(r,'opponent')));
   moments.sort((a,b)=>a._r.i-b._r.i);
-  const rs=h.Result||'*', res=rs==='1/2-1/2'||rs==='*'?'D':(rs==='1-0')===(side==='w')?'W':'L';
-  const opp=side==='w'?(h.Black||'Opponent'):(h.White||'Opponent');
-  const facts={you:side==='w'?'White':'Black',opponent:opp,result:{W:'win',L:'loss',D:'draw'}[res],howItEnded:h.Termination||'',timeControl:tcLabel(h.TimeControl),opening:openingName(h),movesPlayed:total,
+  const K=prog.keep||null;
+  const rs=h.Result||'*', res=K?K.res:(rs==='1/2-1/2'||rs==='*'?'D':(rs==='1-0')===(side==='w')?'W':'L');
+  const opp=K?(K.vs||'Opponent'):(side==='w'?(h.Black||'Opponent'):(h.White||'Opponent'));
+  const W=writeReview({rows,mine,side,res,opp,opening:K?K.opening:openingName(h),term:h.Termination||(K&&K.reason==='Time trouble'?'time':''),acc:acc(mine),oppAcc:acc(theirs)});
+  moments.forEach(m=>{ if(m.who==='you'&&W.why[m._r.i]) m.why=W.why[m._r.i]; });
+  const facts={you:side==='w'?'White':'Black',opponent:opp,result:{W:'win',L:'loss',D:'draw'}[res],howItEnded:h.Termination||'',timeControl:K?K.tc:tcLabel(h.TimeControl),opening:K?K.opening:openingName(h),movesPlayed:total,
     yourAccuracy:acc(mine),opponentAccuracy:acc(theirs),yourBlunders:blunders.length,yourMistakes:mistakes.length,bestEvalYouReached:fmtEval(Math.max(...rows.map(r=>r.afterU))),finalEvalForYou:fmtEval(rows.at(-1).afterU),
-    keyMoments:moments.map(m=>({who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate}))};
+    keyMoments:moments.map(m=>({who:m.who,move:m.move,whatWentWrong:m.why||'',evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate}))};
   if(prog.say) prog.say('Writing your review');
   let out=null;
   
-  if(!out||typeof out.review!=='string'){
-    const pri=m=>(m.missedMate?1000:0)+(m.who==='you'?m._r.drop:m._r.drop/2);
-    const lines=[...moments].sort((a,b)=>pri(b)-pri(a)).slice(0,4).sort((a,b)=>a._r.i-b._r.i).map(m=>m.who==='you'?(m.missedMate?`${m.move} missed a forced mate: ${m.line||m.best}.`:`${m.move} took the eval from ${m.evalBefore} to ${m.evalAfter}. Better was ${m.line||m.best}.`):`${m.move} was a slip by your opponent.`);
-    out={reason:res==='W'?'Won cleanly':blunders.length?'Missed tactic':(/time/i.test(h.Termination||'')?'Time trouble':'Opponent played well'),lesson:blunders.length?`Blunder check before ${tag(blunders[0])}.`:'Keep the five checks on every move.',
-      review:`${facts.result[0].toUpperCase()+facts.result.slice(1)} against ${opp}. Accuracy ${facts.yourAccuracy}, ${blunders.length} blunder${blunders.length===1?'':'s'}.\n\n${lines.join('\n')||'No large swings in this one.'}\n\nLesson: steps one and two, every move.`};
-  }
+  if(!out||typeof out.review!=='string') out={reason:W.reason,lesson:W.lesson,review:W.review};
   const reason=REASONS.concat(['Won cleanly']).includes(out.reason)?out.reason:(res==='W'?'Won cleanly':'Missed tactic');
   const entry={d:prog.d||localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||link||'',
-    acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu}))};
+    acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu,why:m.why||''}))};
+  if(K){ ['d','vs','tc','res','side','opening','link'].forEach(k=>{ entry[k]=K[k]; }); Object.keys(entry).forEach(k=>{ K[k]=entry[k]; }); save(); return {entry:K,dup:true}; }
   entry.key=entry.link||[entry.d,entry.vs,entry.res,moves.length,moves.slice(0,8).map(x=>x.san).join('')].join('|');
   const dup=S.games.some(x=>(x.key||x.link)===entry.key);
   S.games=S.games.filter(x=>(x.key||x.link)!==entry.key);
@@ -1209,13 +1311,14 @@ $('bkCopy').onclick=()=>{ const txt=JSON.stringify(S); const done=()=>{ S.lastBa
 $('bkSave').onclick=()=>{ const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='chess-coach-backup-'+today()+'.json'; document.body.append(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000); S.lastBackup=today(); save(); renderPlan(); };
 $('bkRestore').onclick=()=>{ const raw=$('bkIn').value.trim(); if(!raw){ toast('Paste a backup first'); return; }
   try{ const d=JSON.parse(raw); if(!d||!Array.isArray(d.games)||typeof d.days!=='object') throw 0; const old=JSON.stringify(S);
-    S={v:5,week:'standard',phase:1,topics:{},gates:{},days:{},ratings:[],games:[],focus:['tac']}; load(d); save(); $('bkIn').value=''; renderVisible();
-    toast('Restored',()=>{ S=JSON.parse(old); save(); renderVisible(); }); }catch(e){ toast('That backup couldn’t be read'); } };
+    const who={user:S.user,display:S.display,pull:S.pull};
+    S={v:5,week:'standard',phase:1,topics:{},gates:{},days:{},ratings:[],games:[],focus:['tac']}; load(d); if(!S.user&&who.user) Object.assign(S,who); save(); $('bkIn').value=''; if(typeof afterRestore==='function') afterRestore(); renderVisible();
+    toast('Restored',()=>{ S=JSON.parse(old); save(); if(typeof afterRestore==='function') afterRestore(); renderVisible(); }); }catch(e){ toast('That backup couldn’t be read'); } };
 /* ---- chess.com live games (standalone build) ---- */
 var API='https://api.chess.com/pub/player/';
 var corsOk=null, pulling=false, inbox=[], queue=[], qTotal=0, qDone=0, curItem=null;
 try{ inbox=JSON.parse(ls.get('kc-inbox')||'[]'); }catch(e){ inbox=[]; }
-ME=(S.user||'').toLowerCase();
+ME=(S.user||'').toLowerCase(); if(S.user&&!ls.get('kc-last-user')) ls.set('kc-last-user',S.user);
 
 function jsonp(url){
   return new Promise((res,rej)=>{
@@ -1254,7 +1357,7 @@ function setSync(txt){ const el=$('syncLine'); if(!el) return; el.innerHTML=''; 
 async function pull(force){
   if(!S.user||pulling) return;
   const last=+ls.get('kc-pulled')||0;
-  if(!force&&Date.now()-last<5*60e3){ setSync('Updated '+relTime(last)+'.'); return; }
+  if(!force&&Date.now()-last<60e3){ setSync('Updated '+relTime(last)+'.'); return; }
   pulling=true; setSync('Checking chess.com…');
   try{
     const st=await getJSON(API+encodeURIComponent(S.user)+'/stats');
@@ -1273,7 +1376,7 @@ async function pull(force){
     S.played=Object.assign({},S.played,pl);
     if(mine.some(g=>wanted(g)&&iso(new Date(g.end_time*1000))===t)){
       const tl=tasksFor(t), md=S.days[t]||{}, pi=tl.findIndex(x=>x[2]==='play');
-      if(pi>=0&&!md[pi]){ toggleTask(t,pi,tl.length,true); toast('Today’s game found on chess.com'); }
+      if(pi>=0&&!md[pi]) toggleTask(t,pi,tl.length,true);
     }
     const logged=new Set(S.games.map(g=>g.link).filter(Boolean));
     inbox=mine.filter(g=>wanted(g)&&g.end_time>=cutoff&&!logged.has(g.url)&&g.pgn)
@@ -1324,12 +1427,12 @@ async function bgReview(){
   try{
     for(;;){
       if(reviewing||document.hidden) break;
-      const it=[...visibleInbox()].sort((a,b)=>b.end-a.end)[0]; if(!it) break;
+      const it=[...visibleInbox()].filter(x=>x.end>=Date.now()/1000-3*86400).sort((a,b)=>b.end-a.end)[0]; if(!it) break;
       const c=new Chess();
       if(!c.load_pgn(cleanPgn(it.pgn),{sloppy:true})||c.history().length<2){ S.skipped=Object.assign({},S.skipped,{[it.url]:Date.now()}); save(); continue; }
       try{ await engine(); }catch(e){ break; }
       bgUrl=it.url; renderInbox();
-      let r=null; try{ r=await buildReview(c,it.side,{quiet:true,d:iso(new Date(it.end*1000))},it.url); }catch(e){ r=null; }
+      let r=null, fails=0; try{ r=await buildReview(c,it.side,{quiet:true,d:iso(new Date(it.end*1000))},it.url); }catch(e){ r=null; }
       bgUrl=null; if(!r) break;
       inboxRefresh(); renderVisible();
       const idx=S.games.indexOf(r.entry);
@@ -1338,6 +1441,8 @@ async function bgReview(){
     }
   }finally{ bgBusy=false; bgUrl=null; renderInbox(); }
 }
+
+function afterRestore(){ ME=(S.user||'').toLowerCase(); if(S.user) ls.set('kc-last-user',S.user); inbox=[]; ls.set('kc-inbox','[]'); ls.set('kc-pulled','0'); if(S.user) pull(true); }
 
 /* account + onboarding */
 function renderAccount(){ $('acUser').textContent=S.display||S.user||''; document.querySelectorAll('#pullSeg button').forEach(b=>b.setAttribute('aria-pressed',(S.pull||'rapid')===b.dataset.p)); }
@@ -1354,7 +1459,12 @@ $('wGo').onclick=async()=>{
   try{ prof=await getJSON(API+encodeURIComponent(name.toLowerCase())); }
   catch(e){ $('wGo').disabled=false; msg.className='mono err'; msg.textContent=e&&e.code===404?'chess.com has no player called “'+name+'”.':'Couldn’t reach chess.com. Check the spelling and your connection.'; return; }
   const pretty=(prof&&prof.url&&prof.url.split('/').pop())||name;
-  S.user=name.toLowerCase(); S.display=pretty; ME=S.user; if(!S.since) S.since=today(); save();
+  const nu=name.toLowerCase(), prevU=ls.get('kc-last-user');
+  if(prevU&&prevU!==nu&&!bk){ ls.set('kc-state-'+prevU,JSON.stringify(S)); const back=ls.get('kc-state-'+nu);
+    S={v:5,week:'standard',phase:1,topics:{},gates:{},days:{},ratings:[],games:[],focus:['tac']}; if(back){ try{ load(JSON.parse(back)); }catch(e){} }
+    inbox=[]; ls.set('kc-inbox','[]'); }
+  ls.set('kc-last-user',nu);
+  S.user=nu; S.display=pretty; ME=S.user; if(!S.since) S.since=today(); save();
   $('wGo').disabled=false; msg.textContent=''; $('wBk').value='';
   location.hash='home'; route(); ls.set('kc-pulled','0'); pull(true);
 };
