@@ -207,6 +207,9 @@ button:focus-visible,a:focus-visible,textarea:focus-visible{outline:1.5px solid 
 .steps2 button{flex:1;min-height:40px;border:0;border-radius:999px;background:var(--pill);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
 .steps2 button svg{width:16px;height:16px}
 .steps2 button:disabled{opacity:.35}
+.tag2 .bdot.r{background:var(--q-u)}.tag2 .bdot.v{background:var(--violet)}
+.scrub .tag2.thr{color:var(--foot)}
+.moment .ln.thr i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--q-u);margin-right:6px}
 .tag2 .bdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--q-B);margin-right:6px;vertical-align:1px}
 .mono.foot.fresh{color:var(--violet-ink,#6B4FD8)}
 .ico.played{background:var(--violet);color:var(--on-violet)}
@@ -884,16 +887,16 @@ function renderPuzzle(id){ const a=id||'mix'; if(pz&&a===pzAngle&&!pz.done){ pzR
 
 
 const GL={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
-function boardSVG(fen,played,best,flip,tint,acol){
+function boardSVG(fen,played,best,flip,tint,acol,threat,tcol){
   const rows=fen.split(' ')[0].split('/'); let sq='', pc='';
   const xy=s=>{ const f=s.charCodeAt(0)-97, r=+s[1]-1; return flip?[(7-f)*12.5,r*12.5]:[f*12.5,(7-r)*12.5]; };
   for(let r=0;r<8;r++) for(let f=0;f<8;f++){ const x=(flip?7-f:f)*12.5, y=(flip?7-r:r)*12.5; sq+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="var(${(r+f)%2?'--sq-d':'--sq-l'})"/>`; }
   if(played){ for(const s of [played.slice(0,2),played.slice(2,4)]){ const [x,y]=xy(s); sq+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="${tint||'var(--err-tint)'}"/>`; } }
   rows.forEach((rw,r)=>{ let f=0; for(const ch of rw){ if(/\d/.test(ch)){ f+=+ch; continue; } const x=(flip?7-f:f)*12.5+6.25, y=(flip?7-r:r)*12.5+10.4, w=ch===ch.toUpperCase();
     pc+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="11" style="font-family:var(--glyph)" fill="${w?'#FFFFFF':'#151314'}" stroke="${w?'#151314':'#F4F1EB'}" stroke-opacity="${w?1:.45}" stroke-width="${w?.55:.4}" paint-order="stroke">${GL[ch.toLowerCase()]}︎</text>`; f++; } });
-  let ar='';
-  if(best&&best.length>=4){ const [x1,y1]=xy(best.slice(0,2)), [x2,y2]=xy(best.slice(2,4)); const ax=x1+6.25, ay=y1+6.25, bx=x2+6.25, by=y2+6.25, L=Math.hypot(bx-ax,by-ay)||1, ux=(bx-ax)/L, uy=(by-ay)/L;
-    ar=`<line x1="${ax}" y1="${ay}" x2="${bx-ux*3.2}" y2="${by-uy*3.2}" stroke="${acol||'var(--q-B)'}" stroke-width="2.4" stroke-linecap="round" opacity=".9"/><path d="M${bx} ${by} L${bx-ux*5-uy*3.4} ${by-uy*5+ux*3.4} L${bx-ux*5+uy*3.4} ${by-uy*5-ux*3.4}Z" fill="${acol||'var(--q-B)'}" opacity=".9"/>`; }
+  const arrow=(u,col,w)=>{ if(!u||u.length<4||u==='-') return ''; const [x1,y1]=xy(u.slice(0,2)), [x2,y2]=xy(u.slice(2,4)); const ax=x1+6.25, ay=y1+6.25, bx=x2+6.25, by=y2+6.25, L=Math.hypot(bx-ax,by-ay)||1, ux=(bx-ax)/L, uy=(by-ay)/L, h=w*2.1, hw=w*1.42;
+    return `<line x1="${ax}" y1="${ay}" x2="${bx-ux*(h-1.8)}" y2="${by-uy*(h-1.8)}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" opacity=".9"/><path d="M${bx} ${by} L${bx-ux*h-uy*hw} ${by-uy*h+ux*hw} L${bx-ux*h+uy*hw} ${by-uy*h-ux*hw}Z" fill="${col}" opacity=".9"/>`; };
+  const ar=arrow(threat,tcol||'var(--q-u)',1.9)+arrow(best,acol||'var(--q-B)',2.4);
   return `<svg class="board" viewBox="0 0 100 100" role="img" aria-label="Board position">${sq}${pc}${ar}</svg>`;
 }
 
@@ -1023,7 +1026,8 @@ function renderReplay(g){
     ${marks}
     <line id="gCur" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--violet)" stroke-width="2" vector-effect="non-scaling-stroke"/>
   </svg>
-  <div class="scrub"><div id="gBoard"></div><div class="info"><span class="mvno" id="gMvNo"></span><span class="san" id="gSan"></span><span id="gQ"></span><span class="eval" id="gEval"></span><span class="tag2" id="gTag"></span></div></div>
+  <div class="scrub"><div id="gBoard"></div><div class="info"><span class="mvno" id="gMvNo"></span><span class="san" id="gSan"></span><span id="gQ"></span><span class="eval" id="gEval"></span><span class="tag2" id="gTag"></span><span class="tag2 thr" id="gThr"></span></div></div>
+  ${rp.bm?'<div class="legend"><span><i style="background:var(--q-B)"></i>Best move</span><span><i style="background:var(--q-u)"></i>What it allows</span><span><i style="background:var(--violet)"></i>Your chance</span></div>':''}
   <div class="steps2"><button type="button" id="gFirst" aria-label="Start"><svg aria-hidden="true"><use href="#chev-l"/></svg><svg aria-hidden="true" style="margin-left:-10px"><use href="#chev-l"/></svg></button><button type="button" id="gPrev" aria-label="Previous move"><svg aria-hidden="true"><use href="#chev-l"/></svg></button><button type="button" id="gNext" aria-label="Next move"><svg aria-hidden="true"><use href="#chev-r"/></svg></button><button type="button" id="gKey" aria-label="Next key moment" style="font:400 .7rem var(--mono)">Next key</button></div>
   ${qual}
   <details><summary>All moves</summary><div class="mlist" id="gList"></div></details>`;
@@ -1038,7 +1042,9 @@ function renderReplay(g){
     let arrow=null, bestSan='';
     if(at&&rp.bm){ const b=rp.bm[at-1]; if(b&&b!=='-'&&b.slice(0,4)!==uci&&!'Bbgf'.includes(c||'-')){ arrow=b; bestSan=sanLine(rp.fens[at-1],[b],1)[0]||''; } }
     else if(you&&bad&&m&&m.bu){ arrow=m.bu; bestSan=m.best||''; }
-    let svg=boardSVG(rp.fens[at],uci||null,arrow,flip,bad?'var(--err-tint)':'var(--tint)','var(--q-B)');
+    let threat=null, thrTxt='';
+    if(bad&&rp.bm&&at<n){ const t=rp.bm[at]; if(t&&t!=='-'){ const ts=sanLine(rp.fens[at],[t],1)[0]; if(ts){ threat=t; thrTxt=numbered(rp.fens[at],[ts]); } } }
+    let svg=boardSVG(rp.fens[at],uci||null,arrow,flip,bad?'var(--err-tint)':'var(--tint)','var(--q-B)',threat,you?null:'var(--violet)');
     if(c&&uci) svg=svg.replace('</svg>',badgeSVG(uci.slice(2,4),flip,c)+'</svg>');
     $('gBoard').innerHTML=svg;
     const no=Math.ceil(at/2), white=at%2===1;
@@ -1050,6 +1056,7 @@ function renderReplay(g){
     const bt=bestSan?(white?no+'.':no+'…')+bestSan:'';
     tg.innerHTML=''; if(bt){ tg.insertAdjacentHTML('beforeend','<i class="bdot"></i>'); tg.append((m&&m.who==='you'&&m.missedMate?'Missed mate. ':'')+'Best was '+bt); }
     else if(m&&m.who==='opponent') tg.textContent='Their slip';
+    const th=$('gThr'); th.innerHTML=''; if(thrTxt){ th.insertAdjacentHTML('beforeend','<i class="bdot '+(you?'r':'v')+'"></i>'); th.append((you?'Allows ':'Your chance: ')+thrTxt); }
     $('gCur').setAttribute('x1',x(at)); $('gCur').setAttribute('x2',x(at));
     $('gFirst').disabled=$('gPrev').disabled=at===0; $('gNext').disabled=at===n;
     list.querySelectorAll('button').forEach(bn=>bn.setAttribute('aria-current',+bn.dataset.p===at));
@@ -1088,14 +1095,19 @@ function renderGame(idx){
   $('gdAcc').textContent=g.acc?'Accuracy '+g.acc:'';
   const body=$('gdBody'); body.innerHTML='';
   const flip=g.side==='b'||(!g.side&&g.moments&&g.moments[0]&&/…/.test(g.moments.find(m=>m.who==='you')?.move||''));
+  const bmAll=g.bm?g.bm.split(' '):null;
   (g.moments||[]).forEach(m=>{
     const d=document.createElement('div'); d.className='moment'+(m.who==='opponent'?' gift':'')+(m.fen?'':' nob');
-    if(m.fen) d.insertAdjacentHTML('beforeend',boardSVG(m.fen,m.pu,m.who==='you'?m.bu:null,flip));
+    let ru=m.ru||'', rtxt='';
+    if(!ru&&bmAll&&typeof m.ply==='number') ru=bmAll[m.ply+1]||'';
+    if(ru&&ru!=='-'&&m.fen&&m.pu){ try{ const t=new Chess(m.fen); if(t.move({from:m.pu.slice(0,2),to:m.pu.slice(2,4),promotion:m.pu[4]||'q'})){ const fa=t.fen(), rs=sanLine(fa,[ru],1)[0]; if(rs) rtxt=numbered(fa,[rs]); else ru=''; } else ru=''; }catch(e){ ru=''; } } else ru='';
+    if(m.fen) d.insertAdjacentHTML('beforeend',m.who==='you'?boardSVG(m.fen,m.pu,m.bu,flip,null,null,ru):boardSVG(m.fen,m.pu,ru||null,flip,null,'var(--violet)'));
     const txt=document.createElement('div');
     const mv=document.createElement('div'); mv.className='mv'; mv.textContent=m.move+(m.who==='opponent'?', their slip':m.missedMate?', mate missed':'');
     const ev=document.createElement('div'); ev.className='ev'; ev.textContent=m.evalBefore+' to '+m.evalAfter; txt.append(mv,ev);
     if(m.why){ const wy=document.createElement('div'); wy.className='ln'; wy.textContent=m.why.replace(/^\S+\s/,'').replace(/^./,ch=>ch.toUpperCase()); txt.append(wy); }
     if(m.who==='you'&&(m.line||m.best)){ const ln=document.createElement('div'); ln.className='ln'; ln.append('Better was '); const em=document.createElement('em'); em.textContent=m.line||m.best; ln.append(em); txt.append(ln); }
+    if(rtxt){ const tl=document.createElement('div'); tl.className='ln thr'; tl.innerHTML=m.who==='you'?'<i></i>':''; tl.append(m.who==='you'?'Allows '+rtxt:'Your chance: '+rtxt); txt.append(tl); }
     d.append(txt); body.append(d);
   });
   body.hidden=!body.children.length; $('gdReview').textContent=g.review||g.lesson||'';
@@ -1356,7 +1368,7 @@ async function buildReview(c,side,prog,link){
   if(!out||typeof out.review!=='string') out={reason:W.reason,lesson:W.lesson,review:W.review};
   const reason=REASONS.concat(['Won cleanly']).includes(out.reason)?out.reason:(res==='W'?'Won cleanly':'Missed tactic');
   const entry={d:prog.d||localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||link||'',
-    acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu,why:m.why||''}))};
+    acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu,ru:m._r.reply||'',why:m.why||''}))};
   if(K){ ['d','vs','tc','res','side','opening','link'].forEach(k=>{ entry[k]=K[k]; }); Object.keys(entry).forEach(k=>{ K[k]=entry[k]; }); save(); return {entry:K,dup:true}; }
   entry.key=entry.link||[entry.d,entry.vs,entry.res,moves.length,moves.slice(0,8).map(x=>x.san).join('')].join('|');
   const dup=S.games.some(x=>(x.key||x.link)===entry.key);
