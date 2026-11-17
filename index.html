@@ -209,6 +209,10 @@ button:focus-visible,a:focus-visible,textarea:focus-visible{outline:1.5px solid 
 .steps2 button:disabled{opacity:.35}
 .tag2 .bdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--q-B);margin-right:6px;vertical-align:1px}
 .mono.foot.fresh{color:var(--violet-ink,#6B4FD8)}
+.ico.played{background:var(--violet);color:var(--on-violet)}
+.ico.wait{background:none;color:var(--foot);border:1.5px dashed var(--foot)}
+.row .trail{flex:none;font:400 .78rem var(--mono);color:var(--foot)}
+.row .trail.go{color:var(--violet)}
 .qpill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;min-height:26px;padding:0 10px 0 4px;border-radius:999px;font:400 .72rem var(--mono);color:var(--ink);background:var(--pill)}
 .qpill b{display:grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:999px;color:#fff;font:400 .7rem var(--mono)}
 .qual{display:grid;grid-template-columns:1fr auto auto;gap:0;border-radius:14px;overflow:hidden;background:var(--bg)}
@@ -321,13 +325,18 @@ body{margin:0}
       <svg class="seal" viewBox="0 0 24 24" aria-hidden="true"><use href="#mk"/></svg>
       <div class="c bl" id="cFocus"></div><div class="c br" id="cStreak"></div>
     </a>
-    <nav class="week" id="week" aria-label="This week"></nav>
     <div class="headblock" style="gap:10px">
-      <div class="section"><span id="todayLbl"></span><span id="todayCount"></span></div>
-      <div class="lanes" id="todayLanes"></div>
+      <div class="section"><span>Last 14 days</span><span id="stkLbl" style="color:var(--ink)"></span></div>
+      <nav class="week" id="week" aria-label="Days you played, last 14 days"></nav>
     </div>
-    <div class="rows" id="todayTasks"></div>
-    <p class="mono foot" id="nudge" hidden></p>
+    <div class="headblock" style="gap:10px">
+      <div class="section"><span>Today</span><span id="todaySrc"></span></div>
+      <div class="rows" id="todayRows"></div>
+    </div>
+    <div class="headblock" style="gap:10px" id="sugBlock">
+      <div class="section"><span>Suggested</span><span>Optional</span></div>
+      <div class="rows" id="sugRows"></div>
+    </div>
     <div class="thumb pin" id="homeThumb"></div>
   </section>
 
@@ -347,8 +356,7 @@ body{margin:0}
   <section class="screen" id="s-day" hidden>
     <div class="bar"><button class="back" type="button" data-back="home"><svg aria-hidden="true"><use href="#chev-l"/></svg>Today</button><span style="display:flex;gap:4px"><button class="back" type="button" id="dayPrev" aria-label="Previous day" style="padding:8px"><svg aria-hidden="true"><use href="#chev-l"/></svg></button><button class="back" type="button" id="dayNext" aria-label="Next day" style="padding:8px"><svg aria-hidden="true"><use href="#chev-r"/></svg></button></span></div>
     <div class="headblock"><h1 id="dayHead"></h1><div class="mono foot" id="daySub"></div></div>
-    <div class="section"><span>Training</span><span id="dayCount"></span></div>
-    <div class="lanes" id="dayLanes"></div>
+    <div class="section" id="dayPracLbl"><span>Practice</span><span id="dayCount"></span></div>
     <div class="rows" id="dayTasks"></div>
     <div class="section" id="dayGamesLbl"><span>Games</span><span id="dayGamesN"></span></div>
     <div class="glist" id="dayGames"></div>
@@ -561,7 +569,14 @@ applyTheme();
 function tasksFor(ds){ const m=S.days[ds]; if(m&&Array.isArray(m.list)&&m.list.length) return m.list; return SCHED[S.week][dayIdx(D(ds))]; }
 function doneCount(ds){ const m=S.days[ds]||{}, l=tasksFor(ds), started=ds>=since(); return l.filter((x,i)=>m[i]||(started&&x[2]==='rest')).length; }
 function dayDone(ds){ const l=tasksFor(ds); if(!l.length) return false; if(l.every(x=>x[2]==='rest')) return ds>=since()&&ds<=today(); return doneCount(ds)>=l.length; }
-function streak(){ let n=0; const d=new Date(); if(!dayDone(iso(d))) d.setDate(d.getDate()-1); while(dayDone(iso(d))&&n<3000){n++;d.setDate(d.getDate()-1);} return n; }
+/* A day counts if you finished a game on chess.com (or reviewed one from that day) */
+function playedOn(ds){ const p=S.played&&S.played[ds]; if(p) return p; const gs=S.games.filter(g=>g.d===ds); if(!gs.length) return null; return [gs.filter(g=>g.res==='W').length,gs.filter(g=>g.res==='L').length,gs.filter(g=>g.res==='D').length]; }
+function nPlayed(p){ return p?p[0]+p[1]+p[2]:0; }
+function streak(){ let n=0; const d=new Date(); if(!nPlayed(playedOn(iso(d)))) d.setDate(d.getDate()-1); while(nPlayed(playedOn(iso(d)))&&n<3000){n++;d.setDate(d.getDate()-1);} return n; }
+const isAuto=k=>k==='play'||k==='review'||k==='rest';
+function practice(ds){ return tasksFor(ds).map((x,i)=>({x,i})).filter(o=>!isAuto(o.x[2])); }
+function practiceDone(ds){ const m=S.days[ds]||{}; return practice(ds).every(o=>m[o.i]); }
+function wld(p){ const o=[]; if(p[0]) o.push(p[0]+(p[0]===1?' win':' wins')); if(p[1]) o.push(p[1]+(p[1]===1?' loss':' losses')); if(p[2]) o.push(p[2]+(p[2]===1?' draw':' draws')); return o.join(', '); }
 function rapid(){ return [...S.ratings].filter(x=>x.rapid).sort((a,b)=>a.d<b.d?-1:1); }
 function since(){ if(S.since) return S.since; const r=rapid(); return r.length?r[0].d:today(); }
 function target(){ const d=D(since()); d.setMonth(d.getMonth()+3*S.phase); return d; }
@@ -605,33 +620,32 @@ function bootCard(force){
 function settle(){ if(settled) return; settled=true; renderCard(); if(bootPending||(cur&&cur.id==='s-home')){ bootPending=false; bootCard(); } }
 
 
+function trailRow(lead,title,sub,trail,onTap,goCls){ const b=row(lead,title,sub,'',onTap,`<span class="trail${goCls?' go':''}"></span>`); b.querySelector('.trail').textContent=trail||''; return b; }
 function renderHome(){
-  const t=today(), d=new Date(), list=tasksFor(t), m=S.days[t]||{}, n=doneCount(t), all=dayDone(t);
+  const t=today(), m=S.days[t]||{}, st=streak(), pToday=playedOn(t), nT=nPlayed(pToday);
   renderCard();
-  const wk=$('week'); wk.innerHTML=''; const first=D(t); first.setDate(first.getDate()-6);
-  for(let i=0;i<7;i++){ const x=new Date(first); x.setDate(first.getDate()+i); const ds=iso(x), a=document.createElement('a');
-    const fut=ds>t, dn=!fut&&dayDone(ds), part=!fut&&!dn&&doneCount(ds)>0;
-    a.className=[ds===t?'today':'',fut?'future':'',dn?'done':'',part?'part':''].join(' ').trim();
-    a.href=fut?'#home':'#day-'+ds; if(fut) a.setAttribute('aria-disabled','true');
-    a.setAttribute('aria-label',DAYS[dayIdx(x)]+' '+fmtD(x)+(dn?', done':part?', started':''));
-    a.innerHTML='<span>'+DAYS[dayIdx(x)][0]+'</span><b>'+x.getDate()+'</b>';
-    if(fut) a.onclick=e=>{ e.preventDefault(); toast('Not there yet'); };
-    wk.append(a); }
+  const wk=$('week'); wk.innerHTML=''; const first=D(t); first.setDate(first.getDate()-13);
+  for(let k=0;k<14;k++){ const x=new Date(first); x.setDate(first.getDate()+k); const ds=iso(x), a=document.createElement('a'), n=nPlayed(playedOn(ds));
+    a.className=[ds===t?'today':'',n?'done':''].join(' ').trim(); a.href='#day-'+ds;
+    a.setAttribute('aria-label',DAYS[dayIdx(x)]+' '+fmtD(x)+(n?', played '+n+(n===1?' game':' games'):', no games'));
+    a.innerHTML='<span>'+DAYS[dayIdx(x)][0]+'</span><b>'+x.getDate()+'</b>'; wk.append(a); }
+  $('stkLbl').textContent=st?st+' day streak':'No streak yet';
   $('goalTag').textContent=goalText();
-  $('todayLbl').textContent=DAYS[dayIdx(d)];
-  $('todayCount').textContent= all?'Complete':n+' of '+list.length;
-  lanes($('todayLanes'),list.length,n);
-  const played=list.some((x,i)=>x[2]==='play'&&m[i]), nudge=$('nudge');
-  const fresh=(xReady?visibleInbox():[]).filter(x=>iso(new Date(x.end*1000))===t).length;
-  nudge.hidden=!(fresh||(played&&!gamesOn(t).length));
-  if(fresh) nudge.innerHTML=fresh+(fresh===1?' new game':' new games')+' from chess.com. <a href="#games" style="color:var(--ink)">Review</a>';
-  else if(!nudge.hidden) nudge.innerHTML='Played today? <a href="#review" style="color:var(--ink)">Review it</a> so it counts toward your gate.';
-  const box=$('todayTasks'); box.innerHTML='';
-  list.forEach(([title,sub,kind],i)=>box.append(row(taskIcon(kind), kind==='study'&&nextTopic().pick?'Study: '+nextTopic().pick.t[1].toLowerCase():title, sub, m[i]?'done':'', ()=>{ sessI=i; sessPinned=true; location.hash='session'; })));
-  const th=$('homeThumb'); th.innerHTML='';
-  th.classList.toggle('stack',all);
-  if(all){ th.innerHTML='<a class="btn" href="#review">Review a game</a><div class="mono foot" style="text-align:center">Done for today. '+streak()+' day streak.</div>'; }
-  else { th.innerHTML='<a class="btn sec" href="#review">Review</a><a class="btn go" href="#session">'+(n?'Continue':'Start session')+'</a>'; }
+  $('todaySrc').textContent=typeof pull==='function'?'From chess.com':'From your reviews';
+  const box=$('todayRows'); box.innerHTML='';
+  if(nT) box.append(trailRow('<span class="ico played">'+CK+'</span>','Played '+nT+(nT===1?' game':' games'),wld(pToday),'Streak kept',()=>{ location.hash='day-'+t; }));
+  else box.append(trailRow('<span class="ico wait"><svg aria-hidden="true"><use href="#k-clock"/></svg></span>','No games yet today',st?'Play one to make it '+(st+1)+' days':'Play one to start a streak','Play →',()=>{ window.open('https://www.chess.com/play/online','_blank','noopener'); },true));
+  const lens='<span class="ico none"><svg aria-hidden="true"><use href="#k-lens"/></svg></span>', R3={W:'Win',L:'Loss',D:'Draw'};
+  if(typeof inbox!=='undefined') [...inbox].filter(it=>iso(new Date(it.end*1000))===t&&!(S.skipped||{})[it.url]).forEach(it=>{
+    const busy=typeof bgUrl!=='undefined'&&bgUrl===it.url;
+    box.append(trailRow(lens,R3[it.res]+' vs '+it.vs,busy?'Reviewing…':'Waiting to review',busy?'':'Review →',()=>{ if(busy){ bgWait={url:it.url,done:idx=>{ gdFrom='home'; location.hash='game-'+idx; }}; toast('Almost done. It opens when ready.'); return; } queue=[]; qTotal=0; reviewItem(it); }));
+  });
+  gamesOn(t).reverse().forEach(({g,idx})=>box.append(trailRow(lens,R3[g.res]+' vs '+(g.vs||'opponent'),'Reviewed'+(g.acc?' · accuracy '+g.acc:''),'→',()=>{ gdFrom='home'; location.hash='game-'+idx; })));
+  const sug=$('sugRows'); sug.innerHTML=''; const pr=practice(t);
+  $('sugBlock').hidden=!pr.length;
+  pr.forEach(({x:[title,sub,kind],i})=>{ const pk=nextTopic().pick; sug.append(trailRow(taskIcon(kind),kind==='study'&&pk?'Study: '+pk.t[1].toLowerCase():title,m[i]?'Done today':sub,m[i]?'✓':'→',()=>{ sessI=i; sessPinned=true; location.hash='session'; })); });
+  const th=$('homeThumb'); th.classList.remove('stack');
+  th.innerHTML='<a class="btn sec" href="#review">Review</a>'+(pr.length?'<a class="btn go" href="#session">'+(practiceDone(t)?'Practice more':'Start practice')+'</a>':'<a class="btn go" href="https://www.chess.com/play/online" target="_blank" rel="noopener">Play</a>');
 }
 function toggleTask(t,i,total,val){ const cur=Object.assign({},S.days[t]); if(!Array.isArray(cur.list)) cur.list=tasksFor(t).map(x=>x.slice()); cur[i]= val===undefined?!cur[i]:val; cur.total=cur.list.length; S.days[t]=cur; save(); }
 function mondayOf(d){ const x=new Date(d); x.setDate(x.getDate()-dayIdx(x)); return x; }
@@ -639,19 +653,20 @@ function gamesOn(ds){ return S.games.map((g,idx)=>({g,idx})).filter(x=>x.g.d===d
 
 
 let sessI=0, sessPinned=false;
-function sessFirst(){ const t=today(), m=S.days[t]||{}; return tasksFor(t).findIndex((_,i)=>!m[i]); }
+function sessFirst(){ const t=today(), m=S.days[t]||{}; const o=practice(t).find(o=>!m[o.i]); return o?o.i:-1; }
 function renderSession(){
   const t=today(), list=tasksFor(t), m=S.days[t]||{};
-  if(sessI<0||sessI>=list.length) sessI=Math.max(0,sessFirst());
-  lanes($('sessLanes'),list.length,list.filter((_,i)=>m[i]).length);
+  const pr=practice(t);
+  if(sessI<0||sessI>=list.length||isAuto(list[sessI][2])) sessI=sessFirst(); if(sessI<0&&pr.length) sessI=pr[0].i;
+  lanes($('sessLanes'),pr.length,pr.filter(o=>m[o.i]).length);
   const body=$('sessBody'); body.innerHTML='';
-  if(dayDone(t)&&!sessPinned){
-    $('sessCount').textContent='Complete';
-    body.innerHTML=`${icon('none',true)}<div class="headblock"><h1>Session complete</h1><div class="mono foot">${streak()} day streak. Same time tomorrow.</div></div>`;
+  if(!pr.length||(practiceDone(t)&&!sessPinned)){
+    $('sessCount').textContent=pr.length?'Complete':'';
+    body.innerHTML=`${icon('none',true)}<div class="headblock"><h1>${pr.length?'Practice done':'No practice today'}</h1><div class="mono foot">${pr.length?'Nice work. ':''}Your streak counts days you play on chess.com.</div></div>`;
     $('sessDone').textContent='Back to today'; $('sessSkip').hidden=true; return;
   }
   const [title,sub,kind]=list[sessI], pk=nextTopic().pick, isDone=!!m[sessI];
-  $('sessCount').textContent='Task '+(sessI+1)+' of '+list.length;
+  $('sessCount').textContent='Task '+(pr.findIndex(o=>o.i===sessI)+1)+' of '+pr.length;
   body.innerHTML=taskIcon(kind,true)+'<div class="headblock"><h1></h1><div class="mono foot"></div></div><div class="chips"></div>';
   body.querySelector('h1').textContent= kind==='study'&&pk ? pk.t[0] : title;
   body.querySelector('.mono').textContent= kind==='study' ? '15 to 20 puzzles on this theme' : sub;
@@ -659,36 +674,36 @@ function renderSession(){
   if(kind==='rush'){ const r=S.ratings.find(o=>o.d===t)||{}; body.insertAdjacentHTML('beforeend','<input class="field" id="rushIn" type="number" inputmode="numeric" placeholder="Your best score today" aria-label="Puzzle Rush score">'); if(r.rush) $('rushIn').value=r.rush; }
   if(kind==='reflect'){ body.insertAdjacentHTML('beforeend','<textarea class="field" id="noteIn" style="height:120px" placeholder="What cost you points this week, and one thing to focus on next" aria-label="Weekly reflection"></textarea>'); $('noteIn').value=(S.notes&&S.notes[t])||''; }
   if(kind==='study'&&pk){ const b=document.createElement('button'); b.type='button'; b.className='quiet'; b.style.textAlign='left'; b.textContent='I know this topic now. Tick it off in my plan'; b.onclick=()=>{ S.topics[S.phase+'-'+pk.k]=true; save(); toast('Topic ticked off'); renderSession(); }; body.append(b); }
-  $('sessDone').textContent= isDone?'Mark not done':'Done'; $('sessSkip').hidden=isDone; $('sessSkip').textContent= list.filter((_,i)=>!m[i]).length>1?'Do this later':'Not now';
+  $('sessDone').textContent= isDone?'Mark not done':'Done'; $('sessSkip').hidden=isDone; $('sessSkip').textContent= practice(t).filter(o=>!m[o.i]).length>1?'Do this later':'Not now';
 }
 $('sessDone').onclick=()=>{
   const t=today(), list=tasksFor(t), m=S.days[t]||{};
-  if(dayDone(t)&&!sessPinned){ location.hash='home'; return; }
+  if(!practice(t).length||(practiceDone(t)&&!sessPinned)){ location.hash='home'; return; }
   const kind=(list[sessI]||[])[2];
   if(kind==='rush'&&$('rushIn')&&$('rushIn').value){ const v=+$('rushIn').value; const old=S.ratings.find(o=>o.d===t)||{d:t}; S.ratings=S.ratings.filter(o=>o.d!==t).concat(Object.assign({},old,{d:t,rush:v})); save(); }
   if(kind==='reflect'&&$('noteIn')){ S.notes=Object.assign({},S.notes); const v=$('noteIn').value.trim(); if(v) S.notes[t]=v; else delete S.notes[t]; save(); }
   if(m[sessI]){ toggleTask(t,sessI,list.length,false); renderSession(); return; }
   toggleTask(t,sessI,list.length,true); sessPinned=false;
-  const nx=list.findIndex((_,i)=>!S.days[t][i]);
+  const nx=list.findIndex((x,i)=>!S.days[t][i]&&!isAuto(x[2]));
   if(nx<0){ fadeSwap(()=>{ renderSession(); }); toast('Session complete'); } else { sessI=nx; fadeSwap(renderSession); }
 };
-$('sessSkip').onclick=()=>{ const t=today(), list=tasksFor(t), m=S.days[t]||{}; const order=list.map((_,i)=>(sessI+1+i)%list.length).filter(i=>!m[i]&&i!==sessI); sessPinned=false; if(order.length){ sessI=order[0]; fadeSwap(renderSession); } else location.hash='home'; };
+$('sessSkip').onclick=()=>{ const t=today(), list=tasksFor(t), m=S.days[t]||{}; const order=list.map((_,i)=>(sessI+1+i)%list.length).filter(i=>!m[i]&&i!==sessI&&!isAuto(list[i][2])); sessPinned=false; if(order.length){ sessI=order[0]; fadeSwap(renderSession); } else location.hash='home'; };
 function fadeSwap(fn){ const b=$('sessBody'); if(RM){ fn(); return; } b.style.transition='opacity .25s cubic-bezier(.4,0,.9,.6)'; b.style.opacity='0'; setTimeout(()=>{ fn(); b.style.transition='none'; b.style.transform='translateY(10px)'; void b.offsetWidth; b.style.transition='opacity .5s cubic-bezier(.2,.7,.2,1),transform .5s cubic-bezier(.2,.7,.2,1)'; b.style.opacity='1'; b.style.transform='none'; },260); }
 
 
 let dayId=null;
 function renderDay(ds){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(ds||'')){ location.hash='home'; return; } dayId=ds;
-  const d=D(ds), t=today(), list=tasksFor(ds), m=S.days[ds]||{}, n=doneCount(ds), age=(D(t)-d)/864e5, canEdit=ds<=t&&age<=7;
+  const d=D(ds), t=today(), list=tasksFor(ds), m=S.days[ds]||{}, p=playedOn(ds), age=(D(t)-d)/864e5, canEdit=ds<=t&&age<=7;
   $('dayHead').textContent=(ds===t?'Today':DAYS[dayIdx(d)])+', '+fmtD(d);
-  $('dayCount').textContent=dayDone(ds)?'Complete':n+' of '+list.length;
-  $('daySub').textContent= ds>t?'Coming up':!canEdit?'Older days are read only.':ds===t?'Tap a task to open it.':'Forgot to tick something? Tap it.';
-  lanes($('dayLanes'),list.length,n);
+  $('daySub').textContent= ds>t?'Coming up':nPlayed(p)?'Played '+nPlayed(p)+(nPlayed(p)===1?' game: ':' games: ')+wld(p):'No games played';
+  const pr=practice(ds), did=pr.filter(o=>m[o.i]).length, showPrac=ds===t?pr.length>0:did>0;
+  $('dayPracLbl').hidden=$('dayTasks').hidden=!showPrac; $('dayCount').textContent=pr.length?did+' of '+pr.length:'';
   const shift=k=>{ const x=D(ds); x.setDate(x.getDate()+k); return iso(x); };
   $('dayPrev').onclick=()=>{ location.hash='day-'+shift(-1); };
   $('dayNext').disabled=ds>=t; $('dayNext').style.opacity=ds>=t?'.3':''; $('dayNext').onclick=()=>{ if(ds<t) location.hash='day-'+shift(1); };
   const box=$('dayTasks'); box.innerHTML='';
-  list.forEach(([title,sub,kind],i)=>{ const on=!!m[i]||(kind==='rest'&&ds>=since());
+  pr.forEach(({x:[title,sub,kind],i})=>{ const on=!!m[i];
     const act=()=>{ try{ if(ds===t){ sessI=i; sessPinned=true; location.hash='session'; return; } if(!canEdit){ toast('Days older than a week can’t be changed'); return; } toggleTask(ds,i,list.length); renderDay(ds); toast((S.days[ds][i]?'Ticked for ':'Unticked for ')+DAYS[dayIdx(D(ds))]); }catch(e){ toast('Couldn’t save that: '+(e&&e.message||e)); } };
     const b=row(taskIcon(kind),title,sub,on?'toggle-on':'toggle-off',null); let fired=0, px=0, py=0;
     b.addEventListener('pointerdown',e=>{ px=e.clientX; py=e.clientY; });
@@ -1126,7 +1141,7 @@ async function buildReview(c,side,prog,link){
       review:`${facts.result[0].toUpperCase()+facts.result.slice(1)} against ${opp}. Accuracy ${facts.yourAccuracy}, ${blunders.length} blunder${blunders.length===1?'':'s'}.\n\n${lines.join('\n')||'No large swings in this one.'}\n\nLesson: steps one and two, every move.`};
   }
   const reason=REASONS.concat(['Won cleanly']).includes(out.reason)?out.reason:(res==='W'?'Won cleanly':'Missed tactic');
-  const entry={d:localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||link||'',
+  const entry={d:prog.d||localDate(h),vs:opp,tc:facts.timeControl,res,side,opening:facts.opening,reason,lesson:String(out.lesson||'').slice(0,160),review:String(out.review).replace(/\*\*/g,'').replace(/!/g,'.').replace(/^\s*[—–•-]\s*/gm,''),link:h.Link||link||'',
     acc:facts.yourAccuracy,bl:blunders.length,mv:moves.map(x=>x.san).join(' '),cl:rows.map(r=>r.cls).join(''),bm:rows.map(r=>r.bu||'-').join(' '),ev:[rows[0]?rows[0].beforeU:0].concat(rows.map(r=>r.afterU)).map(v=>Math.max(-10000,Math.min(10000,Math.round(v)))).join(','),moments:moments.map(m=>({ply:m._r.i,who:m.who,move:m.move,evalBefore:m.evalBefore,evalAfter:m.evalAfter,best:m.best,line:m.line,missedMate:m.missedMate,fen:m.fen,pu:m.pu,bu:m.bu}))};
   entry.key=entry.link||[entry.d,entry.vs,entry.res,moves.length,moves.slice(0,8).map(x=>x.san).join('')].join('|');
   const dup=S.games.some(x=>(x.key||x.link)===entry.key);
@@ -1167,7 +1182,7 @@ function route(){
   if(!prev||RM){ if(prev) prev.hidden=true; next.hidden=false; window.scrollTo(0,0); if(sc.name==='home') bootCard(); return; }
   prev.classList.remove('in'); prev.classList.add('out');
   next.hidden=false; next.classList.remove('out'); void next.offsetWidth; next.classList.add('in');
-  setTimeout(()=>{ prev.hidden=true; prev.classList.remove('out'); window.scrollTo(0,0); },400);
+  setTimeout(()=>{ prev.classList.remove('out'); if(prev!==cur){ prev.hidden=true; window.scrollTo(0,0); } },400);
   setTimeout(()=>next.classList.remove('in'),1050);
   if(sc.name==='home') setTimeout(()=>bootCard(),340);
   if(sc.name==='review'&&!reviewing) setTimeout(()=>{ if(!$('pgnIn').value) $('pgnIn').focus({preventScroll:true}); },700);
@@ -1251,6 +1266,11 @@ async function pull(force){
     for(const m of (ar.archives||[]).slice(-2)){ const j=await getJSON(m); (j.games||[]).forEach(g=>found.push(g)); }
     const me=S.user.toLowerCase(), cutoff=Date.now()/1000-14*86400, t=today();
     const mine=found.filter(g=>g.white&&g.black&&(g.white.username.toLowerCase()===me||g.black.username.toLowerCase()===me));
+    /* every finished game counts toward the streak, any time control */
+    const pl={};
+    mine.forEach(g=>{ if(!g.end_time) return; const ds=iso(new Date(g.end_time*1000)), you=g.white.username.toLowerCase()===me?g.white:g.black, r=resultFor(you.result);
+      const a=pl[ds]||(pl[ds]=[0,0,0]); a[r==='W'?0:r==='L'?1:2]++; });
+    S.played=Object.assign({},S.played,pl);
     if(mine.some(g=>wanted(g)&&iso(new Date(g.end_time*1000))===t)){
       const tl=tasksFor(t), md=S.days[t]||{}, pi=tl.findIndex(x=>x[2]==='play');
       if(pi>=0&&!md[pi]){ toggleTask(t,pi,tl.length,true); toast('Today’s game found on chess.com'); }
@@ -1271,7 +1291,7 @@ function visibleInbox(){ const sk=S.skipped||{}; return inbox.filter(x=>!sk[x.ur
 function renderInbox(){
   inboxRefresh();
   const box=$('inbox'), list=$('inboxList'); if(!box) return;
-  const vis=visibleInbox(); box.hidden=!vis.length; list.innerHTML='';
+  const t0=today(), vis=visibleInbox().filter(it=>iso(new Date(it.end*1000))!==t0); box.hidden=!vis.length; list.innerHTML='';
   $('revAll').textContent=vis.length>1?'Review all '+vis.length:'Review';
   vis.forEach(it=>{
     const dt=new Date(it.end*1000), row=document.createElement('div'); row.className='g inb';
@@ -1298,7 +1318,7 @@ function afterReview(){
 $('revAll').onclick=()=>{ if(bgBusy){ toast('Already reviewing these. They’ll show up in Games.'); return; } const items=[...visibleInbox()].sort((a,b)=>a.end-b.end); if(!items.length) return; qTotal=items.length; qDone=0; queue=items.slice(1); reviewItem(items[0]); };
 
 /* New chess.com games get reviewed on their own while the app is open, newest first */
-let bgBusy=false, bgUrl=null, bgWait=null;
+var bgBusy=false, bgUrl=null, bgWait=null;
 async function bgReview(){
   if(bgBusy||!S.user||typeof Chess==='undefined') return; bgBusy=true;
   try{
@@ -1309,7 +1329,7 @@ async function bgReview(){
       if(!c.load_pgn(cleanPgn(it.pgn),{sloppy:true})||c.history().length<2){ S.skipped=Object.assign({},S.skipped,{[it.url]:Date.now()}); save(); continue; }
       try{ await engine(); }catch(e){ break; }
       bgUrl=it.url; renderInbox();
-      let r=null; try{ r=await buildReview(c,it.side,{quiet:true},it.url); }catch(e){ r=null; }
+      let r=null; try{ r=await buildReview(c,it.side,{quiet:true,d:iso(new Date(it.end*1000))},it.url); }catch(e){ r=null; }
       bgUrl=null; if(!r) break;
       inboxRefresh(); renderVisible();
       const idx=S.games.indexOf(r.entry);
