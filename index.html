@@ -940,11 +940,24 @@ const OPENINGS=[
   blurb:'Keep a pawn on d5, develop calmly, castle. A rock-solid answer to 1.d4.',
   lines:[
    {name:'Against 2.c4',moves:[['d4'],['d5','Take your share of the center.'],['c4'],['e6','Defend d5. Don’t grab the pawn.'],['Nc3'],['Nf6'],['Bg5','White pins your knight.'],['Be7','Unpin and get ready to castle.'],['e3'],['O-O'],['Nf3'],['h6','Ask the bishop to decide.'],['Bh4'],['b6','The other bishop will come to b7.'],['Be2'],['Bb7','Develop, then aim for …c5.']]},
-   {name:'Against the London',moves:[['d4'],['d5'],['Bf4'],['c5','Hit the center before White builds the triangle.'],['e3'],['Nc6'],['c3'],['Qb6','Attack b2. The London bishop left it alone.'],['Qb3'],['c4','Push the queen back.'],['Qc2'],['Bf5','Trade off White’s best attacking piece.']]}]}
+   {name:'Against the London',moves:[['d4'],['d5'],['Bf4'],['c5','Hit the center before White builds the triangle.'],['e3'],['Nc6'],['c3'],['Qb6','Attack b2. The London bishop left it alone.'],['Qb3'],['c4','Push the queen back.'],['Qc2'],['Bf5','Trade off White’s best attacking piece.']]}]},
+ {id:'kid',name:'King’s Indian Defense',side:'b',first:'1.d4 Nf6',tag:'Fight back against 1.d4',
+  blurb:'Let White build a big center, castle behind a fianchetto bishop, then strike back with …e5 and …f5 and attack the king.',
+  lines:[
+   {name:'Classical',moves:[['d4'],['Nf6','Develop and keep White from playing e4 for free.'],['c4'],['g6','Prepare …Bg7 for the long diagonal.'],['Nc3'],['Bg7','The bishop aims straight at d4 and the queen side.'],['e4','White takes a big center. That’s fine: you’ll hit it later.'],['d6','Keep e5 under control and free the c8 bishop.'],['Nf3'],['O-O','King to safety first.'],['Be2'],['e5','The key move: strike the center.'],['O-O'],['Nc6','Pressure d4 and make White decide.'],['d5','White closes the center.'],['Ne7','The knight heads for the king side to help …f5.'],['Ne1','White reroutes to support c5.'],['Nd7','Clear the way for the f-pawn.'],['Nd3'],['f5','The plan: attack on the king side with …f4 and …g5 next.']]},
+   {name:'Sämisch (5.f3)',moves:[['d4'],['Nf6'],['c4'],['g6'],['Nc3'],['Bg7'],['e4'],['d6'],['f3','White protects e4 and plans to castle long and push g4 and h4.'],['O-O'],['Be3'],['e5','Same idea: hit the center.'],['d5'],['Nh5','Prepare …f5 and eye f4.'],['Qd2'],['f5','Open the f-file toward White’s king side.'],['O-O-O'],['Nd7','Bring another piece toward the action.']]},
+   {name:'Fianchetto (g3)',moves:[['d4'],['Nf6'],['c4'],['g6'],['Nf3'],['Bg7'],['g3','White mirrors your setup.'],['O-O'],['Bg2'],['d6'],['O-O'],['Nbd7','Support …e5.'],['Nc3'],['e5'],['e4'],['c6','Give the queen b6 and the pawn d5 later.'],['h3'],['Re8','Add pressure on e4 and the center.']]},
+   {name:'Against the London',moves:[['d4'],['Nf6'],['Nf3'],['g6'],['Bf4','The London. Your King’s Indian setup still works.'],['Bg7'],['e3'],['d6'],['h3'],['O-O'],['Be2'],['Nbd7'],['O-O'],['Qe8','A trick worth knowing: it supports …e5 without hanging d6.'],['c4'],['e5','Strike the center anyway.'],['Bh2'],['Ne4','Jump into the center. It is hard to kick out, and …f5 can back it up.']]}]},
+ {id:'sicilian',name:'Sicilian Defense',side:'b',first:'1.e4 c5',tag:'Play for a win against 1.e4',
+  blurb:'Fight for d4 from the side with …c5. Positions are unbalanced, so you get real winning chances as Black.',
+  lines:[
+   {name:'Open Sicilian',moves:[['e4'],['c5','Control d4 without copying White.'],['Nf3'],['d6'],['d4'],['cxd4','Swap a side pawn for White’s center pawn.'],['Nxd4'],['Nf6','Hit e4 so White must defend it.'],['Nc3'],['Nc6'],['Be2'],['e5','Kick the knight from the center.'],['Nb3'],['Be7'],['O-O'],['O-O','A sound, simple setup. …Be6 and …a5 come next.']]},
+   {name:'Alapin (2.c3)',moves:[['e4'],['c5'],['c3','White wants to play d4 and keep a pawn center.'],['Nf6','Attack e4 straight away.'],['e5'],['Nd5','The knight is safe and strong in the center.'],['d4'],['cxd4'],['Nf3'],['Nc6','Pile up on d4.'],['cxd4'],['d6','Challenge the e5 pawn.'],['Bc4'],['Nb6','Kick the bishop.'],['Bb5'],['dxe5'],['Nxe5'],['Bd7','Calm and equal.']]},
+   {name:'Against 3.Bb5+',moves:[['e4'],['c5'],['Nf3'],['d6'],['Bb5+','White checks to trade pieces.'],['Bd7','Block with a developing move.'],['Bxd7+'],['Qxd7','Take back with the queen to keep b8 free for the knight.'],['O-O'],['Nc6'],['c3'],['Nf6'],['Re1'],['e6','Solid: the d5 push comes later.'],['d4'],['cxd4'],['cxd4'],['d5'],['e5'],['Ne4','A strong knight in the center.']]}]}
 ];
 
 /* ---- opening trainer: learn a line, then play it from memory ---- */
-const OP_MATCH={italian:/italian|giuoco|two knights/i,london:/london|queen.?s pawn/i,qgambit:/queen.?s gambit/i,vsscandi:/scandinavian/i,e5:/italian|ruy|scotch|king.?s pawn|petrov|danish|ponziani|four knights/i,caro:/caro/i,qgd:/queen.?s gambit|queens pawn|london/i};
+const OP_MATCH={italian:/italian|giuoco|two knights/i,london:/london|queen.?s pawn/i,qgambit:/queen.?s gambit/i,vsscandi:/scandinavian/i,e5:/italian|ruy|scotch|king.?s pawn|petrov|danish|ponziani|four knights/i,caro:/caro/i,qgd:/queen.?s gambit|queens pawn|london/i,kid:/king.?s indian|old benoni/i,sicilian:/sicilian/i};
 let op=null, opMode='learn', opLine=0;
 function opRec(id){ if(!S.op||typeof S.op!=='object') S.op={}; return S.op[id]||(S.op[id]={}); }
 function opLineRec(id,k){ const r=opRec(id); return r[k]||(r[k]={seen:0,clean:0,tries:0}); }
