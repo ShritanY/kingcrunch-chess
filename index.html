@@ -232,6 +232,16 @@ button:focus-visible,a:focus-visible,textarea:focus-visible{outline:1.5px solid 
 .board .pb{fill:#3a3936;stroke:#161514;stroke-width:2.3;stroke-linejoin:round}
 .board .pw .cut{fill:none;stroke:#33322f;stroke-width:2.6;stroke-linecap:round} .board .pb .cut{fill:none;stroke:#cfcdc4;stroke-width:2.6;stroke-linecap:round}
 .board .pw .dot{fill:#33322f;stroke:none} .board .pb .dot{fill:#cfcdc4;stroke:none}
+.opwrap{display:flex;flex-direction:column;gap:18px}
+.opblurb{margin:0;color:var(--foot);line-height:1.45}
+#opLines .chip[aria-pressed=true]{background:var(--ink);color:var(--on-ink)}
+.opinfo{display:flex;flex-direction:column;gap:6px;min-height:6.2em}
+.opmv{font:400 1.6rem/1 var(--head);letter-spacing:-.02em}
+.opwhy{line-height:1.45}
+#opNext{font-size:.74rem;color:var(--foot)} #opNext.ok{color:var(--q-B)}
+.opmoves{display:flex;flex-wrap:wrap;gap:2px 4px}
+.opmoves button{border:0;background:none;color:var(--foot);font:400 .78rem var(--mono);padding:6px 6px;border-radius:6px;cursor:pointer}
+.opmoves button[aria-current=true]{background:var(--pill);color:var(--ink)}
 .qpill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;min-height:26px;padding:0 10px 0 4px;border-radius:999px;font:400 .72rem var(--mono);color:var(--ink);background:var(--pill)}
 .qpill b{display:grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:999px;color:#fff;font:400 .7rem var(--mono)}
 .qual{display:grid;grid-template-columns:1fr auto auto;gap:0;border-radius:14px;overflow:hidden;background:var(--bg)}
@@ -475,7 +485,7 @@ body{margin:0}
   <section class="screen" id="s-game" hidden>
     <div class="bar"><button class="back" type="button" data-back="games"><svg aria-hidden="true"><use href="#chev-l"/></svg>Games</button><span class="mono foot" id="gdAcc"></span></div>
     <div class="headblock"><h1 id="gdHead"></h1><div class="mono foot" id="gdSub"></div></div>
-    <div class="replay" id="gdReplay" hidden></div><div class="rows" id="gdBody"></div><div class="review" id="gdReview"></div>
+    <div class="replay" id="gdReplay" hidden></div><div class="rows" id="gdBody"></div><div class="review" id="gdReview"></div><a class="row solo" id="gdOpen" hidden style="min-height:52px"><span class="t"><span></span><span class="mono"></span></span><svg class="chev foot" aria-hidden="true"><use href="#chev-r"/></svg></a>
     <div class="thumb"><button class="btn" type="button" id="gdDone">Done</button><button class="quiet" type="button" id="gdDel">Remove game</button></div>
   </section>
 
@@ -508,6 +518,10 @@ body{margin:0}
     <div class="section"><span>Topics</span><span id="topicCount"></span></div>
     <div class="seg" id="phaseSeg" style="margin-top:-8px"></div>
     <div class="rows" id="topicList"></div>
+    <div class="rows">
+      <a class="row" href="#open"><span class="ico op"><svg aria-hidden="true"><use href="#i-op"/></svg></span><span class="t"><span>Openings</span><span class="mono">Learn and drill your lines</span></span><svg class="chev foot" aria-hidden="true"><use href="#chev-r"/></svg></a>
+      <a class="row" href="#puzzle"><span class="ico tac"><svg aria-hidden="true"><use href="#i-tac"/></svg></span><span class="t"><span>Puzzles</span><span class="mono">Themes and your own missed chances</span></span><svg class="chev foot" aria-hidden="true"><use href="#chev-r"/></svg></a>
+    </div>
     <a class="row solo" href="#routine" style="min-height:52px"><span class="t"><span>Before every move</span><span class="mono">The five checks to run in every game</span></span><svg class="chev foot" aria-hidden="true"><use href="#chev-r"/></svg></a>
     <div>
       <details><summary>Training week</summary><div class="in">
@@ -539,6 +553,24 @@ body{margin:0}
     </div>
   </section>
 
+  <section class="screen" id="s-open" hidden>
+    <div class="bar"><button class="back" type="button" data-back="home"><svg aria-hidden="true"><use href="#chev-l"/></svg>Back</button><span class="mono foot" id="opCount"></span></div>
+    <div id="opList" class="opwrap">
+      <div class="headblock"><h1>Openings</h1><div class="mono foot">Learn a line, then play it from memory.</div></div>
+      <div id="opRows" class="opwrap"></div>
+    </div>
+    <div id="opView" class="opwrap" hidden>
+      <div class="headblock"><h1 id="opName"></h1><div class="mono foot" id="opSub"></div></div>
+      <p class="opblurb" id="opBlurb"></p>
+      <div class="chips" id="opLines"></div>
+      <div class="seg" id="opModeSeg"><button type="button" data-m="learn">Learn</button><button type="button" data-m="drill">Drill</button></div>
+      <div id="opBoard" class="pzboard"></div>
+      <div class="opinfo"><div class="opmv" id="opMove"></div><div class="opwhy" id="opWhy" role="status"></div><div class="mono" id="opNext"></div></div>
+      <div class="steps2" id="opLearnBtns"><button type="button" id="opFirst" aria-label="Start"><svg aria-hidden="true"><use href="#chev-l"/></svg><svg style="margin-left:-10px" aria-hidden="true"><use href="#chev-l"/></svg></button><button type="button" id="opPrev" aria-label="Previous move"><svg aria-hidden="true"><use href="#chev-l"/></svg></button><button type="button" id="opNextB" aria-label="Next move"><svg aria-hidden="true"><use href="#chev-r"/></svg></button><button type="button" id="opLast" aria-label="End"><svg aria-hidden="true"><use href="#chev-r"/></svg><svg style="margin-left:-10px" aria-hidden="true"><use href="#chev-r"/></svg></button></div>
+      <div class="steps2 pzbtns" id="opDrillBtns" hidden><button type="button" id="opHint">Hint</button><button type="button" id="opRestart">Restart</button><button type="button" id="opNextLine">Next line</button></div>
+      <div class="opmoves" id="opMoves"></div>
+    </div>
+  </section>
   <section class="screen" id="s-puzzle" hidden>
     <div class="bar"><button class="back" type="button" data-back="home"><svg aria-hidden="true"><use href="#chev-l"/></svg>Back</button><span class="mono foot" id="pzCount"></span></div>
     <div class="headblock"><h1 id="pzHead"></h1><div class="mono foot" id="pzSub"></div></div>
@@ -578,7 +610,7 @@ const KIND={
   play:{area:'mid',links:[['Play rapid','https://www.chess.com/play/online'],['Before every move','#routine']]},
   review:{area:'mid',links:[['Review a game','#review']]},
   endgame:{area:'end',links:[['Practice','https://lichess.org/practice'],['Pawn endgames',LT+'pawnEndgame']]},
-  openings:{area:'op',links:[['Explorer','https://lichess.org/analysis#explorer'],['Studies','REP']]},
+  openings:{area:'op',links:[['Openings','#open'],['Explorer','https://lichess.org/analysis#explorer']]},
   master:{area:'op',links:[['Studies',ST('annotated master games')]]},
   rush:{area:'tac',links:[['Puzzle Rush','https://www.chess.com/puzzles/rush'],['Storm','https://lichess.org/storm']]},
   reflect:{area:'none',links:[['Your games','#games']]},
@@ -611,7 +643,7 @@ const PHASES=[
   {n:2,name:'Play with a plan',
    topics:[['Piece activity','Activity','mid',[['Studies',ST('piece activity')]]],['Weak squares and outposts','Outposts','mid',[['Studies',ST('outposts')]]],['Open files and rooks','Open files','mid',[['Studies',ST('open file rooks')]]],
     ['Pawn structure','Structure','mid',[['Studies',ST('pawn structure')],['Passed pawns',LT+'advancedPawn']]],['Good and bad bishops','Bishops','mid',[['Studies',ST('good bishop bad bishop')]]],
-    ['Repertoire to move ten','Repertoire','op',[['Explorer','https://lichess.org/analysis#explorer'],['Studies','REP']]],['Hard puzzles, solved in your head','Calculation','tac',[['Puzzles',LT]]],
+    ['Repertoire to move ten','Repertoire','op',[['Openings','#open'],['Explorer','https://lichess.org/analysis#explorer']]],['Hard puzzles, solved in your head','Calculation','tac',[['Puzzles',LT]]],
     ['Rook endgames: Lucena, Philidor','Rook endings','end',[['Practice','https://lichess.org/practice'],['Rook endgames',LT+'rookEndgame']]]],
    gate:{rating:100,text:'Rapid about 100 above your start, and you can explain your opening plans.'}},
   {n:3,name:'Calculate and convert',
@@ -745,7 +777,7 @@ function renderHome(){
   gamesOn(t).reverse().forEach(({g,idx})=>box.append(trailRow(lens,R3[g.res]+' vs '+(g.vs||'opponent'),'Reviewed'+(g.acc?' · accuracy '+g.acc:''),'→',()=>{ gdFrom='home'; location.hash='game-'+idx; })));
   const sug=$('sugRows'); sug.innerHTML=''; const pr=practice(t);
   $('sugBlock').hidden=!pr.length;
-  pr.forEach(({x:[title,sub,kind],i})=>{ const pk=nextTopic().pick; const pzN=pzToday()[0], isPz=kind==='puzzles'; sug.append(trailRow(taskIcon(kind),kind==='study'&&pk?'Study: '+pk.t[1].toLowerCase():title,m[i]?'Done today':isPz?(pzN?pzN+' of '+PZ_GOAL+' solved today':PZ_GOAL+' puzzles, right here'):sub,m[i]?'✓':'→',()=>{ if(isPz){ location.hash='puzzle'; return; } sessI=i; sessPinned=true; location.hash='session'; })); });
+  pr.forEach(({x:[title,sub,kind],i})=>{ const pk=nextTopic().pick; const pzN=pzToday()[0], isPz=kind==='puzzles'; sug.append(trailRow(taskIcon(kind),kind==='study'&&pk?'Study: '+pk.t[1].toLowerCase():title,m[i]?'Done today':isPz?(pzN?pzN+' of '+PZ_GOAL+' solved today':PZ_GOAL+' puzzles, right here'):sub,m[i]?'✓':'→',()=>{ if(isPz){ location.hash='puzzle'; return; } if(kind==='openings'){ location.hash='open'; return; } sessI=i; sessPinned=true; location.hash='session'; })); });
   const th=$('homeThumb'); th.classList.remove('stack');
   th.innerHTML='<a class="btn sec" href="#review">Review</a>'+(pr.length?'<a class="btn go" href="#session">'+(practiceDone(t)?'Practice more':'Start practice')+'</a>':'<a class="btn go" href="https://www.chess.com/play/online" target="_blank" rel="noopener">Play</a>');
 }
@@ -869,6 +901,140 @@ function renderPlan(){
 }
 document.querySelectorAll('#weekSeg button').forEach(b=>b.onclick=()=>{ S.week=b.dataset.w; save(); renderPlan(); });
 
+
+/* ---- opening lessons: each line is [san, why] pairs; why is optional ---- */
+const OPENINGS=[
+ {id:'italian',name:'Italian Game',side:'w',first:'1.e4',tag:'Classic and safe',
+  blurb:'Bring the bishop to c4, aim at f7, castle fast. Quiet, solid and easy to play well.',
+  lines:[
+   {name:'Giuoco Piano',moves:[['e4','Grab the center and open lines for the queen and bishop.'],['e5'],['Nf3','Develop with a threat: the e5 pawn is attacked.'],['Nc6','Black defends e5 with a developing move.'],['Bc4','The bishop aims at f7, the weakest square near Black’s king.'],['Bc5','Black mirrors you and aims at f2.'],['c3','Prepares d4 to take the center later.'],['Nf6','Black hits your e4 pawn.'],['d3','Protect e4 calmly. No need to rush.'],['d6'],['O-O','King to safety. Do this before you attack.'],['O-O'],['Re1','The rook backs up the e4 pawn and the center.'],['a6','Black makes room for the bishop to retreat.'],['Bb3','Step back before ...b5 or ...Na5 can hit the bishop.'],['Ba7'],['h3','Stop ...Bg4 pinning your knight. Now you are ready to play Nbd2 and d4.']]},
+   {name:'Two Knights',moves:[['e4'],['e5'],['Nf3'],['Nc6'],['Bc4'],['Nf6','Black attacks e4 right away.'],['d3','Defend e4 and keep things simple.'],['Be7','A calm setup for Black.'],['O-O'],['O-O'],['Re1'],['d6'],['c3','Same plan as the Giuoco Piano: prepare d4.'],['Na5','Black chases your bishop.'],['Bb5','The bishop keeps its diagonal by heading to c2 through a4.'],['a6'],['Ba4'],['b5'],['Bc2','Tucked away, still aiming at Black’s king side.'],['c5'],['Nbd2','Develop the last minor piece. Next comes Nf1 and Ng3.']]},
+   {name:'Watch out: …Ng5 ideas',moves:[['e4'],['e5'],['Nf3'],['Nc6'],['Bc4'],['Nf6'],['Ng5','This attacks f7 twice. It is sharp, but you must know Black’s reply.'],['d5','Black blocks the bishop. The only good answer.'],['exd5'],['Na5','Black hits the bishop instead of taking back.'],['Bb5+','Check, and keep the extra pawn.'],['c6'],['dxc6'],['bxc6'],['Be2','You are a pawn up. Black gets quick development for it, so castle soon.']]}]},
+ {id:'london',name:'London System',side:'w',first:'1.d4',tag:'Same setup every game',
+  blurb:'d4, Bf4, e3, Nf3, c3, Bd3. You build the same strong position against almost anything.',
+  lines:[
+   {name:'Against …d5',moves:[['d4','Take the center with the queen’s pawn.'],['d5'],['Bf4','Get the bishop out before e3 locks it in.'],['Nf6'],['e3','Now the other bishop can come out too.'],['e6'],['Nf3'],['c5','Black attacks your center.'],['c3','Keep d4 solid. This pawn triangle is the London.'],['Nc6'],['Nbd2','Develop toward e5 and f3, keep b2 covered by the queen later.'],['Bd6','Black offers a bishop trade.'],['Bg3','Keep your good bishop by stepping back.'],['O-O'],['Bd3','Aim at Black’s king. Castle next.']]},
+   {name:'Against …g6',moves:[['d4'],['Nf6'],['Bf4'],['g6','Black plans …Bg7 on the long diagonal.'],['e3'],['Bg7'],['Nf3'],['O-O'],['Be2','A quieter square, so …Nh5 or …e5 cannot hit the bishop with tempo.'],['d6'],['h3','Make a home for the f4 bishop on h2 if Black plays …Nh5.'],['c5'],['c3','Keep the center solid, same London triangle.'],['Nc6'],['O-O','Simple and safe. Play Nbd2 and a4 next.']]}]},
+ {id:'qgambit',name:'Queen’s Gambit',side:'w',first:'1.d4',tag:'Fight for the center',
+  blurb:'Offer the c-pawn to pull Black’s d-pawn away from the center. Not a real gambit: you usually win it back.',
+  lines:[
+   {name:'Declined (…e6)',moves:[['d4'],['d5'],['c4','Attack d5 from the side.'],['e6','Black keeps the pawn on d5.'],['Nc3','More pressure on d5.'],['Nf6'],['Bg5','Pin the knight that defends d5.'],['Be7','Black breaks the pin.'],['e3'],['O-O'],['Nf3'],['h6','Black asks the bishop where it is going.'],['Bh4','Keep the pin.'],['b6'],['Be2','Develop and castle next.']]},
+   {name:'Accepted (…dxc4)',moves:[['d4'],['d5'],['c4'],['dxc4','Black takes the pawn.'],['e3','Free the bishop to win the pawn back.'],['Nf6'],['Bxc4','Pawn regained, and you have the center.'],['e6'],['Nf3'],['c5','Black hits your center.'],['O-O'],['a6'],['a4','Stop …b5 from chasing your bishop.']]}]},
+ {id:'vsscandi',name:'Against the Scandinavian',side:'w',first:'1.e4 d5',tag:'You faced this 3 times',
+  blurb:'Black takes on d5 and brings the queen out early. Develop with tempo by attacking it.',
+  lines:[
+   {name:'2…Qxd5',moves:[['e4'],['d5','The Scandinavian.'],['exd5','Take it.'],['Qxd5','Black’s queen is out early.'],['Nc3','Develop and hit the queen.'],['Qa5'],['d4'],['Nf6'],['Nf3'],['c6','Gives the queen an escape square on c7.'],['Bc4'],['Bf5'],['Bd2','Your knight is no longer pinned, and a quick Nd5 can trap the queen.'],['e6'],['Qe2','Connect your pieces and castle long or short next.']]},
+   {name:'2…Nf6',moves:[['e4'],['d5'],['exd5'],['Nf6','Black wants the pawn back with the knight.'],['d4','Don’t try to hold the pawn. Take the center instead.'],['Nxd5'],['Nf3'],['Bg4'],['Be2'],['e6'],['O-O'],['Nc6'],['c4','Kick the knight and grab more space.'],['Nb6'],['Nc3','You have a big center and easy development.']]}]},
+ {id:'e5',name:'1…e5 Defense',side:'b',first:'1.e4 e5',tag:'Play like a classic',
+  blurb:'Meet 1.e4 with 1…e5. Develop knights before bishops, castle early, and fight for d4.',
+  lines:[
+   {name:'Against the Italian',moves:[['e4'],['e5','Match White in the center.'],['Nf3'],['Nc6','Defend e5 and develop.'],['Bc4'],['Bc5','Aim at f2, just like White aims at f7.'],['c3'],['Nf6','Hit e4 right away.'],['d3'],['d6'],['O-O'],['O-O','Castle first, then think about plans.'],['Re1'],['a6','Make room for the bishop on a7.'],['Bb3'],['Ba7','Safe from d4 and b4.']]},
+   {name:'Against the Ruy Lopez',moves:[['e4'],['e5'],['Nf3'],['Nc6'],['Bb5','White pressures the knight that defends e5.'],['a6','Ask the bishop to decide.'],['Ba4'],['Nf6','Develop with a hit on e4.'],['O-O'],['Be7','Calm: get ready to castle.'],['Re1'],['b5','Push the bishop away for good.'],['Bb3'],['d6','Defend e5 again.'],['c3'],['O-O','A sound position. Play …Na5 to swap the strong bishop.']]},
+   {name:'Against the Scotch',moves:[['e4'],['e5'],['Nf3'],['Nc6'],['d4','White opens the center at once.'],['exd4','Take it.'],['Nxd4'],['Nf6','Develop with a hit on e4.'],['Nxc6'],['bxc6','Take back toward the center.'],['e5'],['Qe7','Pin the e5 pawn to the king.'],['Qe2'],['Nd5','The knight finds a strong central square.'],['c4'],['Ba6','Pin the c4 pawn to the queen. Equal play.']]}]},
+ {id:'caro',name:'Caro-Kann',side:'b',first:'1.e4 c6',tag:'Solid against 1.e4',
+  blurb:'Prepare …d5 with …c6. Your light-squared bishop comes out before …e6, so nothing gets stuck.',
+  lines:[
+   {name:'Classical',moves:[['e4'],['c6','Prepare …d5 with support.'],['d4'],['d5','Challenge the center.'],['Nc3'],['dxe4'],['Nxe4'],['Bf5','The bishop gets out before …e6.'],['Ng3'],['Bg6','Keep the bishop on its diagonal.'],['h4','White wants to trap or weaken your bishop.'],['h6','Give the bishop a retreat.'],['Nf3'],['Nd7','Stop Ne5 hitting the bishop.'],['h5'],['Bh7','Safe. Play …e6 and …Ngf6 next.']]},
+   {name:'Advance',moves:[['e4'],['c6'],['d4'],['d5'],['e5','White grabs space.'],['Bf5','The bishop comes out first. That’s the whole point of the Caro.'],['Nf3'],['e6'],['Be2'],['c5','Hit the pawn chain at its base.'],['O-O'],['Nc6','More pressure on d4.']]}]},
+ {id:'qgd',name:'Queen’s Gambit Declined',side:'b',first:'1.d4 d5',tag:'Solid against 1.d4',
+  blurb:'Keep a pawn on d5, develop calmly, castle. A rock-solid answer to 1.d4.',
+  lines:[
+   {name:'Against 2.c4',moves:[['d4'],['d5','Take your share of the center.'],['c4'],['e6','Defend d5. Don’t grab the pawn.'],['Nc3'],['Nf6'],['Bg5','White pins your knight.'],['Be7','Unpin and get ready to castle.'],['e3'],['O-O'],['Nf3'],['h6','Ask the bishop to decide.'],['Bh4'],['b6','The other bishop will come to b7.'],['Be2'],['Bb7','Develop, then aim for …c5.']]},
+   {name:'Against the London',moves:[['d4'],['d5'],['Bf4'],['c5','Hit the center before White builds the triangle.'],['e3'],['Nc6'],['c3'],['Qb6','Attack b2. The London bishop left it alone.'],['Qb3'],['c4','Push the queen back.'],['Qc2'],['Bf5','Trade off White’s best attacking piece.']]}]}
+];
+
+/* ---- opening trainer: learn a line, then play it from memory ---- */
+const OP_MATCH={italian:/italian|giuoco|two knights/i,london:/london|queen.?s pawn/i,qgambit:/queen.?s gambit/i,vsscandi:/scandinavian/i,e5:/italian|ruy|scotch|king.?s pawn|petrov|danish|ponziani|four knights/i,caro:/caro/i,qgd:/queen.?s gambit|queens pawn|london/i};
+let op=null, opMode='learn', opLine=0;
+function opRec(id){ if(!S.op||typeof S.op!=='object') S.op={}; return S.op[id]||(S.op[id]={}); }
+function opLineRec(id,k){ const r=opRec(id); return r[k]||(r[k]={seen:0,clean:0,tries:0}); }
+function opMastered(id,k){ const r=S.op&&S.op[id]&&S.op[id][k]; return !!(r&&r.clean>=2); }
+function opPlayed(o){ const re=OP_MATCH[o.id]; return re?S.games.filter(g=>g.side===o.side&&re.test(g.opening||'')).length:0; }
+function opLabel(fen,san){ return numbered(fen,[san]); }
+function renderOpenings(id){
+  const list=$('opList'), view=$('opView'), o=OPENINGS.find(x=>x.id===id);
+  list.hidden=!!o; view.hidden=!o;
+  if(!o){ op=null;
+    const box=$('opRows'); box.innerHTML='';
+    ['w','b'].forEach(side=>{ const h=document.createElement('div'); h.className='section'; h.innerHTML='<span>'+(side==='w'?'As White':'As Black')+'</span><span></span>'; box.append(h);
+      const rows=document.createElement('div'); rows.className='rows';
+      OPENINGS.filter(x=>x.side===side).map(x=>({x,n:opPlayed(x)})).sort((a,b)=>b.n-a.n).forEach(({x,n})=>{
+        const m=x.lines.filter((_,k)=>opMastered(x.id,k)).length;
+        rows.append(trailRow('<span class="ico op"><svg aria-hidden="true"><use href="#i-op"/></svg></span>',x.name,x.first+' · '+(n?'in '+n+' of your games':x.tag),m?m+' of '+x.lines.length:x.lines.length+' lines',()=>{ location.hash='open-'+x.id; })); });
+      box.append(rows); });
+    const tot=OPENINGS.reduce((a,x)=>a+x.lines.filter((_,k)=>opMastered(x.id,k)).length,0);
+    $('opCount').textContent=tot?tot+' lines mastered':''; return; }
+  if(!op||op.o!==o){ opLine=0; opMode='learn'; }
+  $('opCount').textContent=''; $('opName').textContent=o.name;
+  $('opSub').textContent='You play '+(o.side==='w'?'White':'Black')+' · '+o.first; $('opBlurb').textContent=o.blurb;
+  const ls=$('opLines'); ls.innerHTML='';
+  o.lines.forEach((ln,k)=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'; b.setAttribute('aria-pressed',k===opLine); b.textContent=ln.name+(opMastered(o.id,k)?' ✓':''); b.onclick=()=>{ opLine=k; opStart(o); }; ls.append(b); });
+  document.querySelectorAll('#opModeSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===opMode));
+  opStart(o);
+}
+function opStart(o){
+  const ln=o.lines[opLine], c=new Chess(), fens=[c.fen()];
+  ln.moves.forEach(([san])=>{ c.move(san); fens.push(c.fen()); });
+  op={o,ln,fens,k:0,sel:null,miss:0,wrong:0,bad:null,hint:null,done:false,busy:false};
+  document.querySelectorAll('#opLines .chip').forEach((b,k)=>b.setAttribute('aria-pressed',k===opLine));
+  if(opMode==='drill') opAuto(); else opDraw();
+}
+function opMine(k){ return (k%2===0)===(op.o.side==='w'); } /* ply k (0-based) belongs to the player? */
+function opUci(k){ const c=new Chess(op.fens[k]), m=c.move(op.ln.moves[k][0]); return m?m.from+m.to+(m.promotion||''):''; }
+function opDraw(){
+  const o=op.o, ln=op.ln, n=ln.moves.length, k=op.k, flip=o.side==='b', drill=opMode==='drill';
+  const last=k?opUci(k-1):null, next=k<n?opUci(k):null;
+  let arrow=null, acol=null;
+  if(!drill&&next){ arrow=next; acol=opMine(k)?'var(--q-B)':'var(--violet)'; }
+  if(drill&&op.hint&&next){ arrow=next; acol='var(--q-B)'; }
+  let svg=boardSVG(op.fens[k],last,arrow,flip,'var(--tint)',acol);
+  const xy=s=>{ const f=s.charCodeAt(0)-97, r=+s[1]-1; return flip?[(7-f)*12.5,r*12.5]:[f*12.5,(7-r)*12.5]; }; let ov='';
+  if(op.bad){ const [x,y]=xy(op.bad); ov+=`<rect x="${x}" y="${y}" width="12.5" height="12.5" fill="var(--bd-err)"/>`; }
+  if(drill&&op.sel){ const c=new Chess(op.fens[k]); const [x,y]=xy(op.sel); ov+=`<rect x="${x+.6}" y="${y+.6}" width="11.3" height="11.3" fill="none" stroke="var(--violet)" stroke-width="1.4" rx="1.5"/>`;
+    c.moves({square:op.sel,verbose:true}).forEach(m=>{ const [a,b]=xy(m.to); ov+=m.captured?`<circle cx="${a+6.25}" cy="${b+6.25}" r="5.3" fill="none" stroke="var(--violet)" stroke-width="1.1" opacity=".9"/>`:`<circle cx="${a+6.25}" cy="${b+6.25}" r="1.9" fill="var(--violet)" opacity=".9"/>`; }); }
+  $('opBoard').innerHTML=svg.replace('</svg>',ov+'</svg>').replace('class="board"','class="board big"').replace('aria-label="Board position"','aria-label="Opening board"');
+  /* the move just played, and why */
+  const mv=$('opMove'), why=$('opWhy'), nx=$('opNext');
+  if(k===0){ mv.textContent='Start'; why.textContent=drill?(opMine(0)?'Your move. Play the first move of the line.':'Watch White’s first move.'):'Tap → to step through the line.'; }
+  else { const [san,note]=ln.moves[k-1]; mv.textContent=opLabel(op.fens[k-1],san); why.textContent=note||''; }
+  if(drill){ nx.textContent=op.done?(op.miss?'Line done with '+op.miss+(op.miss===1?' slip':' slips')+'. Go again for a clean run.':'Clean run. '+(opMastered(o.id,opLine)?'Line mastered.':'One more clean run to master it.')):(k<n&&opMine(k)?'Your move':'');
+    nx.className='mono '+(op.done&&!op.miss?'ok':''); }
+  else { nx.className='mono'; nx.textContent=k<n?'Next: '+opLabel(op.fens[k],ln.moves[k][0])+(opMine(k)?' (you)':''):'End of the line. Try it in Drill.'; }
+  $('opLearnBtns').hidden=drill; $('opDrillBtns').hidden=!drill;
+  $('opFirst').disabled=$('opPrev').disabled=k===0; $('opNextB').disabled=k>=n;
+  $('opHint').disabled=op.done||!(k<n&&opMine(k));
+  /* the line as text, current move marked */
+  const ml=$('opMoves'); ml.innerHTML='';
+  ln.moves.forEach(([san],i)=>{ if(drill&&i>=k) return; const s=document.createElement('button'); s.type='button'; s.textContent=(i%2===0?(i/2+1)+'.':(i===0?'1…':''))+san; if(i===k-1) s.setAttribute('aria-current','true'); s.onclick=()=>{ if(opMode==='learn'){ op.k=i+1; opDraw(); } }; ml.append(s); });
+}
+function opAuto(){ /* in drill, play the other side's moves */
+  const n=op.ln.moves.length; opDraw();
+  if(op.k>=n){ opFinish(); return; }
+  if(!opMine(op.k)){ op.busy=true; const mine=op; setTimeout(()=>{ if(op!==mine) return; op.k++; op.busy=false; op.wrong=0; op.hint=null; opAuto(); },op.k===0?650:520); }
+}
+function opFinish(){ if(op.done) return; op.done=true; const r=opLineRec(op.o.id,opLine); r.tries++; if(!op.miss) r.clean++; r.last=today(); save(); opDraw();
+  document.querySelectorAll('#opLines .chip').forEach((b,k)=>{ b.textContent=op.o.lines[k].name+(opMastered(op.o.id,k)?' ✓':''); }); }
+function opTap(e){ if(!op) return; const n=op.ln.moves.length;
+  if(opMode==='learn'){ if(op.k<n){ op.k++; opDraw(); } if(op.k>=n){ const r=opLineRec(op.o.id,opLine); if(!r.seen){ r.seen=1; save(); } } return; }
+  if(op.done||op.busy||op.k>=n||!opMine(op.k)) return;
+  const svg=$('opBoard').querySelector('svg'); if(!svg) return; const rc=svg.getBoundingClientRect(); if(!rc.width) return;
+  const f=Math.floor((e.clientX-rc.left)/rc.width*8), q=Math.floor((e.clientY-rc.top)/rc.height*8); if(f<0||f>7||q<0||q>7) return;
+  const flip=op.o.side==='b', sq=flip?'abcdefgh'[7-f]+(q+1):'abcdefgh'[f]+(8-q), c=new Chess(op.fens[op.k]), pc=c.get(sq);
+  if(op.sel&&op.sel!==sq&&c.moves({square:op.sel,verbose:true}).some(m=>m.to===sq)){
+    const exp=opUci(op.k), m=c.move({from:op.sel,to:sq,promotion:'q'}); op.sel=null;
+    if(m&&(m.from+m.to)===exp.slice(0,4)){ op.k++; op.wrong=0; op.hint=null; opAuto(); return; }
+    op.miss++; op.wrong++; op.bad=sq; if(op.wrong>=2) op.hint=true;
+    $('opWhy').textContent=op.wrong>=2?'Follow the green arrow.':'Not the move in this line. Try again.'; opDraw(); $('opWhy').textContent=op.wrong>=2?'Follow the green arrow.':'Not the move in this line. Try again.';
+    setTimeout(()=>{ if(op){ op.bad=null; opDraw(); $('opWhy').textContent=op.wrong>=2?'Follow the green arrow.':'Not the move in this line. Try again.'; } },650); return; }
+  op.sel=pc&&pc.color===c.turn()&&op.sel!==sq?sq:null; opDraw(); }
+$('opBoard').addEventListener('click',opTap);
+$('opFirst').onclick=()=>{ op.k=0; opDraw(); }; $('opPrev').onclick=()=>{ if(op.k) op.k--; opDraw(); };
+$('opNextB').onclick=()=>{ if(op.k<op.ln.moves.length) op.k++; opDraw(); if(op.k>=op.ln.moves.length){ const r=opLineRec(op.o.id,opLine); if(!r.seen){ r.seen=1; save(); } } };
+$('opLast').onclick=()=>{ op.k=op.ln.moves.length; opDraw(); };
+$('opHint').onclick=()=>{ if(!op||op.done) return; op.hint=true; op.miss=Math.max(op.miss,1); opDraw(); $('opWhy').textContent='Follow the green arrow.'; };
+$('opRestart').onclick=()=>opStart(op.o);
+$('opNextLine').onclick=()=>{ opLine=(opLine+1)%op.o.lines.length; opStart(op.o); };
+document.querySelectorAll('#opModeSeg button').forEach(b=>b.onclick=()=>{ opMode=b.dataset.m; document.querySelectorAll('#opModeSeg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m===opMode)); opStart(op.o); });
 
 /* ---- puzzles, solved on a board in the app ---- */
 const PZ_T=[['mix','Mix'],['mine','Your games'],['fork','Forks'],['pin','Pins'],['skewer','Skewers'],['hangingPiece','Loose pieces'],['mateIn1','Mate in 1'],['mateIn2','Mate in 2'],['discoveredAttack','Discoveries'],['backRankMate','Back rank'],['endgame','Endgames']];
@@ -1185,6 +1351,7 @@ function renderGame(idx){
     d.append(txt); body.append(d);
   });
   body.hidden=!body.children.length; $('gdReview').textContent=g.review||g.lesson||'';
+  { const oo=OPENINGS.find(x=>x.side===g.side&&OP_MATCH[x.id]&&OP_MATCH[x.id].test(g.opening||'')), a=$('gdOpen'); a.hidden=!oo; if(oo){ a.href='#open-'+oo.id; a.querySelector('.t span').textContent='Study the '+oo.name; a.querySelector('.t .mono').textContent='Lines for the opening in this game'; } }
   try{ renderReplay(g); }catch(e){ $('gdReplay').hidden=true; }
 }
 $('gdDone').onclick=()=>{ location.hash=gdFrom; };
@@ -1458,14 +1625,15 @@ async function buildReview(c,side,prog,link){
 }
 
 
-const TABS=['home','games','plan'], NAMES=['home','session','review','game','games','plan','routine','day','puzzle','welcome'];
-const BACK={review:()=>reviewFrom,routine:()=>'home',session:()=>'home',game:()=>gdFrom,puzzle:()=>pzFrom};
+const TABS=['home','games','plan'], NAMES=['home','session','review','game','games','plan','routine','day','puzzle','open','welcome'];
+const BACK={review:()=>reviewFrom,routine:()=>'home',session:()=>'home',game:()=>gdFrom,puzzle:()=>pzFrom,open:()=>location.hash.startsWith('#open-')?'open':opFrom};
+let opFrom='plan';
 let reviewFrom='games';
 document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>{ const k=b.closest('.screen').id.slice(2); location.hash=(BACK[k]?BACK[k]():b.dataset.back); });
 let cur=null, curName=null;
-function screenOf(h){ if(h.startsWith('day-')) return {name:'day',id:h.slice(4)}; if(h==='puzzle'||h.startsWith('puzzle-')) return {name:'puzzle',id:h.slice(7)}; const [v,id]=h.split('-'); return {name:NAMES.includes(v)?v:(v==='goal'||v==='focus'?'plan':'home'), id:id!==undefined?+id:null}; }
+function screenOf(h){ if(h.startsWith('day-')) return {name:'day',id:h.slice(4)}; if(h==='puzzle'||h.startsWith('puzzle-')) return {name:'puzzle',id:h.slice(7)}; if(h==='open'||h.startsWith('open-')) return {name:'open',id:h.slice(5)}; const [v,id]=h.split('-'); return {name:NAMES.includes(v)?v:(v==='goal'||v==='focus'?'plan':'home'), id:id!==undefined?+id:null}; }
 function renderScreen(sc){
-  ({welcome:()=>{},puzzle:()=>renderPuzzle(sc.id),day:()=>renderDay(sc.id),home:renderHome,games:renderGames,plan:()=>{ renderPlan(); if(xReady) renderAccount(); },routine:renderRoutine,session:()=>{ if(!sessPinned) sessI=sessFirst(); renderSession(); },game:()=>renderGame(sc.id),review:()=>{ if(!reviewing){ say(''); $('sidePick').hidden=true; btn.hidden=false; } }})[sc.name]();
+  ({welcome:()=>{},open:()=>renderOpenings(sc.id),puzzle:()=>renderPuzzle(sc.id),day:()=>renderDay(sc.id),home:renderHome,games:renderGames,plan:()=>{ renderPlan(); if(xReady) renderAccount(); },routine:renderRoutine,session:()=>{ if(!sessPinned) sessI=sessFirst(); renderSession(); },game:()=>renderGame(sc.id),review:()=>{ if(!reviewing){ say(''); $('sidePick').hidden=true; btn.hidden=false; } }})[sc.name]();
 }
 function route(){
   const sc=S.user?screenOf(location.hash.slice(1)||'home'):{name:'welcome',id:null}, next=$('s-'+sc.name);
@@ -1473,6 +1641,7 @@ function route(){
   if(sc.name==='game'&&TABS.includes(curName)) gdFrom=curName;
   if(sc.name==='game'&&curName==='day'&&dayId) gdFrom='day-'+dayId;
   if(sc.name==='plan'&&curName!=='plan') viewPhase=S.phase;
+  if(sc.name==='open'&&curName&&curName!=='open') opFrom=['home','plan','session','game'].includes(curName)?(curName==='game'?'game-'+gdIdx:curName):'plan';
   if(sc.name==='puzzle'&&curName&&curName!=='puzzle') pzFrom=curName==='day'&&dayId?'day-'+dayId:['home','plan','session'].includes(curName)?curName:'home';
   if(sc.name!=='session') sessPinned=false;
   renderScreen(sc);
